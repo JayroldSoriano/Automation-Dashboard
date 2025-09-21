@@ -1,45 +1,88 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import { Colors } from '../constants/Colors';
 import { Layout } from '../constants/Layout';
+import { HomeViewModel } from '../viewmodels/HomeViewModel';
 
 const HomeScreen = ({ navigation }) => {
+  const [viewState, setViewState] = useState({
+    inquiries: 0,
+    errors: 0,
+    isLoading: false,
+    lastUpdated: null
+  });
+  
+  const viewModelRef = useRef(null);
+
+  useEffect(() => {
+    // Initialize ViewModel
+    viewModelRef.current = new HomeViewModel();
+    
+    // Add listener for state changes
+    const handleStateChange = (newState) => {
+      setViewState(newState);
+    };
+    
+    viewModelRef.current.addListener(handleStateChange);
+    
+    // Load initial data
+    viewModelRef.current.loadDashboardData();
+    
+    // Start real-time updates
+    viewModelRef.current.startRealTimeUpdates();
+    
+    // Cleanup on unmount
+    return () => {
+      if (viewModelRef.current) {
+        viewModelRef.current.destroy();
+      }
+    };
+  }, []);
+
+  const handleRefresh = async () => {
+    if (viewModelRef.current) {
+      await viewModelRef.current.refreshData();
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={viewState.isLoading}
+            onRefresh={handleRefresh}
+            colors={[Colors.primary]}
+            tintColor={Colors.primary}
+          />
+        }
+      >
         <View style={styles.header}>
           <Text style={styles.title}>Automation Dashboard</Text>
           <Text style={styles.subtitle}>Welcome to your automation hub</Text>
         </View>
 
-        <Card style={styles.welcomeCard}>
-          <Text style={styles.cardTitle}>Getting Started</Text>
-          <Text style={styles.cardText}>
-            This is your automation dashboard. You can manage your automated tasks,
-            monitor their status, and configure new automations from here.
-          </Text>
-          <Button
-            title="Explore Features"
-            onPress={() => console.log('Explore features pressed')}
-            style={styles.button}
-          />
-        </Card>
-
         <Card style={styles.statsCard}>
           <Text style={styles.cardTitle}>Quick Stats</Text>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>0</Text>
-              <Text style={styles.statLabel}>Active Automations</Text>
+              <Text style={styles.statNumber}>{viewState.inquiries}</Text>
+              <Text style={styles.statLabel}>Inquiries</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>0</Text>
-              <Text style={styles.statLabel}>Completed Today</Text>
+              <Text style={styles.statNumber}>{viewState.errors}</Text>
+              <Text style={styles.statLabel}>Errors</Text>
             </View>
           </View>
+          {viewState.lastUpdated && (
+            <Text style={styles.lastUpdatedText}>
+              Last updated: {viewState.lastUpdated.toLocaleTimeString()}
+            </Text>
+          )}
         </Card>
 
         <Card style={styles.actionsCard}>
@@ -89,9 +132,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
   },
-  welcomeCard: {
-    marginBottom: Layout.spacing.md,
-  },
   statsCard: {
     marginBottom: Layout.spacing.md,
   },
@@ -138,6 +178,13 @@ const styles = StyleSheet.create({
   actionButton: {
     flex: 1,
     marginHorizontal: Layout.spacing.xs,
+  },
+  lastUpdatedText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: Layout.spacing.sm,
+    fontStyle: 'italic',
   },
 });
 
