@@ -3,6 +3,11 @@ import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../components/Button';
 import Card from '../components/Card';
+import Section from '../components/Section';
+import StatCard from '../components/StatCard';
+import ProgressBar from '../components/ProgressBar';
+import StatusBadge from '../components/StatusBadge';
+import DataTable from '../components/DataTable';
 import { Colors } from '../constants/Colors';
 import { Layout } from '../constants/Layout';
 import { HomeViewModel } from '../viewmodels/HomeViewModel';
@@ -61,29 +66,53 @@ const HomeScreen = ({ navigation }) => {
           />
         }
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>Automation Dashboard</Text>
-          <Text style={styles.subtitle}>Welcome to your automation hub</Text>
+        <View style={styles.header}> 
+          <Text style={styles.title}>Dashboard</Text>
+          <Text style={styles.subtitle}>Overview of key metrics and trends in automated processes.</Text>
         </View>
 
-        <Card style={styles.statsCard}>
-          <Text style={styles.cardTitle}>Quick Stats</Text>
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{viewState.inquiries}</Text>
-              <Text style={styles.statLabel}>Inquiries</Text>
+        <View style={styles.topStatsRow}>
+          <StatCard title="Total Patients" value={1250} style={styles.flexItem} />
+          <StatCard title="Automations Running" value={15} style={styles.flexItem} />
+          <StatCard title="Appointments Scheduled" value={875} style={styles.flexItem} />
+        </View>
+
+        <View style={styles.gridRow}>
+          <Section title="Patient Demographics" style={[styles.flexItem, styles.gridItem]}>
+            <View style={styles.demographicsRow}>
+              <View style={styles.demographicBlock}><Text style={styles.cardText}>Age Distribution</Text></View>
+              <View style={styles.demographicBlock}><Text style={styles.cardText}>Gender Distribution</Text></View>
             </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{viewState.errors}</Text>
-              <Text style={styles.statLabel}>Errors</Text>
+            <View style={styles.legendRow}>
+              {['0-18','19-35','36-55','56+','Male','Female','Other'].map((l)=> (
+                <Text key={l} style={styles.legendText}>{l}</Text>
+              ))}
             </View>
-          </View>
-          {viewState.lastUpdated && (
-            <Text style={styles.lastUpdatedText}>
-              Last updated: {viewState.lastUpdated.toLocaleTimeString()}
-            </Text>
-          )}
-        </Card>
+          </Section>
+
+          <Section title="Platform Usage" style={[styles.flexItem, styles.gridItem]}>
+            <ProgressBar label="Platform A" value={80} />
+            <ProgressBar label="Platform B" value={30} color={Colors.secondary} />
+            <ProgressBar label="Platform C" value={65} color={Colors.success} />
+          </Section>
+        </View>
+
+        <Section title="Scheduling Success Rate" style={styles.wideSection}>
+          <View style={styles.chartPlaceholder} />
+        </Section>
+
+        <Section title="Appointment Details" style={styles.wideSection}>
+          <DataTable 
+            columns={["DATE","TIME","PATIENT NAME","SERVICE","STATUS"]}
+            data={[
+              ['2024-07-15','10:00 AM','Sophia Clark','Cleaning', <StatusBadge key="1" status="confirmed" label="Confirmed" />],
+              ['2024-07-15','11:30 AM','Ethan Harris','Checkup', <StatusBadge key="2" status="completed" label="Completed" />],
+              ['2024-07-16','09:00 AM','Olivia Turner','Filling', <StatusBadge key="3" status="confirmed" label="Confirmed" />],
+              ['2024-07-16','02:00 PM','Liam Foster','Extraction', <StatusBadge key="4" status="cancelled" label="Cancelled" />],
+              ['2024-07-17','10:00 AM','Ava Bennett','Braces', <StatusBadge key="5" status="confirmed" label="Confirmed" />],
+            ]}
+          />
+        </Section>
 
         <Card style={styles.actionsCard}>
           <Text style={styles.cardTitle}>Quick Actions</Text>
@@ -103,6 +132,11 @@ const HomeScreen = ({ navigation }) => {
               style={styles.actionButton}
             />
           </View>
+          {viewState.lastUpdated && (
+            <Text style={styles.lastUpdatedText}>
+              Last updated: {viewState.lastUpdated.toLocaleTimeString()}
+            </Text>
+          )}
         </Card>
       </ScrollView>
     </SafeAreaView>
@@ -118,22 +152,57 @@ const styles = StyleSheet.create({
     padding: Layout.spacing.md,
   },
   header: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: Layout.spacing.lg,
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     color: Colors.text,
     marginBottom: Layout.spacing.sm,
+    marginTop: Layout.spacing.sm,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: Colors.textSecondary,
-    textAlign: 'center',
+    textAlign: 'left',
   },
-  statsCard: {
+  topStatsRow: {
+    flexDirection: 'row',
+    gap: Layout.spacing.md,
     marginBottom: Layout.spacing.md,
+  },
+  flexItem: {
+    flex: 1,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    gap: Layout.spacing.md,
+  },
+  gridItem: {
+    flex: 1,
+  },
+  demographicsRow: {
+    flexDirection: 'row',
+    gap: Layout.spacing.md,
+  },
+  demographicBlock: {
+    flex: 1,
+    height: 120,
+    backgroundColor: Colors.background,
+    borderRadius: Layout.borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  legendRow: {
+    marginTop: Layout.spacing.md,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Layout.spacing.sm,
+  },
+  legendText: {
+    fontSize: 11,
+    color: Colors.textSecondary,
   },
   actionsCard: {
     marginBottom: Layout.spacing.md,
@@ -185,6 +254,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: Layout.spacing.sm,
     fontStyle: 'italic',
+  },
+  wideSection: {
+    marginTop: Layout.spacing.md,
+  },
+  chartPlaceholder: {
+    height: 180,
+    backgroundColor: Colors.background,
+    borderRadius: Layout.borderRadius.lg,
   },
 });
 
