@@ -72,9 +72,9 @@ const HomeScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.topStatsRow}>
-          <StatCard title="Total Patients" value={1250} style={styles.flexItem} />
-          <StatCard title="Automations Running" value={15} style={styles.flexItem} />
-          <StatCard title="Appointments Scheduled" value={875} style={styles.flexItem} />
+          <StatCard title="Total Patients" value={viewState.totalPatients} style={styles.flexItem} />
+          <StatCard title="Automations Running" value={viewState.automationsRunning} style={styles.flexItem} />
+          <StatCard title="Appointments Scheduled" value={viewState.appointmentsScheduled} style={styles.flexItem} />
         </View>
 
         <View style={styles.gridRow}>
@@ -104,13 +104,21 @@ const HomeScreen = ({ navigation }) => {
         <Section title="Appointment Details" style={styles.wideSection}>
           <DataTable 
             columns={["DATE","TIME","PATIENT NAME","SERVICE","STATUS"]}
-            data={[
-              ['2024-07-15','10:00 AM','Sophia Clark','Cleaning', <StatusBadge key="1" status="confirmed" label="Confirmed" />],
-              ['2024-07-15','11:30 AM','Ethan Harris','Checkup', <StatusBadge key="2" status="completed" label="Completed" />],
-              ['2024-07-16','09:00 AM','Olivia Turner','Filling', <StatusBadge key="3" status="confirmed" label="Confirmed" />],
-              ['2024-07-16','02:00 PM','Liam Foster','Extraction', <StatusBadge key="4" status="cancelled" label="Cancelled" />],
-              ['2024-07-17','10:00 AM','Ava Bennett','Braces', <StatusBadge key="5" status="confirmed" label="Confirmed" />],
-            ]}
+            data={(viewState.recentAppointments || []).slice(0, 10).map((appt) => {
+              const date = appt.scheduled_date || (appt.created_at ? appt.created_at.split('T')[0] : '');
+              const time = appt.scheduled_time || '';
+              const name = appt.patient_name || '—';
+              const service = appt.service_name || '—';
+              const status = (appt.status || '').toLowerCase();
+              const label = appt.status || '—';
+              return [
+                date,
+                time,
+                name,
+                service,
+                <StatusBadge key={appt.id} status={status} label={label} />
+              ];
+            })}
           />
         </Section>
 

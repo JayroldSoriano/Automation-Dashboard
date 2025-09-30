@@ -4,8 +4,10 @@ export class HomeViewModel {
   constructor() {
     this.listeners = [];
     this.state = {
-      inquiries: 0,
-      errors: 0,
+      totalPatients: 0,
+      automationsRunning: 0,
+      appointmentsScheduled: 0,
+      recentAppointments: [],
       isLoading: false,
       lastUpdated: null,
     };
@@ -24,24 +26,42 @@ export class HomeViewModel {
     this.updateState({ isLoading: true });
     
     try {
-      const { data, error } = await supabase
-        .from('inquiries_summary')
-        .select('*')
-        .single(); // only 1 row in view
+      // Fetch from appointment_analytics (authoritative source)
+      const selectColumns = 'id, patient_name, service_name, status, scheduled_date, scheduled_time, platform, successful_scheduling, created_at';
 
-      if (!error && data) {
+      const { data, error } = await supabase
+        .from('appointment_analytics')
+        .select(selectColumns)
+        .order('scheduled_date', { ascending: false })
+        .order('scheduled_time', { ascending: false })
+        .limit(50);
+
+      if (!error && Array.isArray(data)) {
+        const uniquePlatforms = new Set();
+        const uniquePatientNames = new Set();
+        let successfulCount = 0;
+
+        data.forEach((row) => {
+          if (row.platform) uniquePlatforms.add(row.platform);
+          if (row.patient_name) uniquePatientNames.add(row.patient_name);
+          if (row.successful_scheduling) successfulCount += 1;
+        });
+
         this.updateState({
-          inquiries: data.total_inquiries,
-          errors: data.total_errors,
+          totalPatients: uniquePatientNames.size || data.length,
+          automationsRunning: uniquePlatforms.size,
+          appointmentsScheduled: successfulCount,
+          recentAppointments: data,
           isLoading: false,
           lastUpdated: new Date(),
         });
       } else {
         console.error('Database error:', error);
-        // Fallback to default values if database objects don't exist yet
         this.updateState({
-          inquiries: 0,
-          errors: 0,
+          totalPatients: 0,
+          automationsRunning: 0,
+          appointmentsScheduled: 0,
+          recentAppointments: [],
           isLoading: false,
           lastUpdated: new Date(),
         });
@@ -50,8 +70,10 @@ export class HomeViewModel {
       console.error('Connection error:', err);
       // Fallback to default values if connection fails
       this.updateState({
-        inquiries: 0,
-        errors: 0,
+        totalPatients: 0,
+        automationsRunning: 0,
+        appointmentsScheduled: 0,
+        recentAppointments: [],
         isLoading: false,
         lastUpdated: new Date(),
       });
@@ -66,17 +88,10 @@ export class HomeViewModel {
     try {
       // subscribe to table changes if you want auto-update
       this.subscription = supabase
-        .channel('dashboard_changes')
+        .channel('analytics_changes')
         .on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'inquiries' },
-          () => {
-            this.loadDashboardData(); // refresh when data changes
-          }
-        )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'errors' },
+          { event: '*', schema: 'public', table: 'appointment_analytics' },
           () => {
             this.loadDashboardData(); // refresh when data changes
           }
