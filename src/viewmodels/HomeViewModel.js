@@ -30,7 +30,7 @@ export class HomeViewModel {
     
     try {
       // Fetch from appointment_analytics (authoritative source)
-      const selectColumns = 'appointment_id, patient_name, patient_gender, patient_age, service_name, status, scheduled_date, scheduled_time, platform, successful_scheduling, created_at';
+      const selectColumns = 'appointment_id, patient_name, patient_gender, patient_age, service_name, service_category, service_price, status, scheduled_date, scheduled_time, platform, successful_scheduling, created_at';
 
       const { data, error } = await supabase
         .from('appointment_analytics')

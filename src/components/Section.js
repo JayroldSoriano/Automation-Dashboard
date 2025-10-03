@@ -29,13 +29,12 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Layout.spacing.sm,
+    justifyContent: 'space-between', // pushes right slot to far edge
+    marginBottom: 12,
   },
-  headerLeft: {
-    flexDirection: 'column',
-  },
+  headerLeft: { flexShrink: 1 },
+  headerRight: { marginLeft: 12 },
   title: {
     fontSize: 16,
     fontWeight: '600',
