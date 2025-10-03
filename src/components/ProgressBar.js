@@ -3,12 +3,12 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { Layout } from '../constants/Layout';
 
-const ProgressBar = ({ label, value = 0, color = Colors.primary }) => {
+const ProgressBar = ({ label, value = 0, color = Colors.primary, trackColor = Colors.background }) => {
   const progress = Math.max(0, Math.min(100, value));
   return (
     <View style={styles.container}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
-      <View style={styles.track}>
+      <View style={[styles.track, { backgroundColor: trackColor }]}>
         <View style={[styles.fill, { width: `${progress}%`, backgroundColor: color }]} />
       </View>
       <Text style={styles.percent}>{progress}%</Text>
@@ -18,6 +18,7 @@ const ProgressBar = ({ label, value = 0, color = Colors.primary }) => {
 
 const styles = StyleSheet.create({
   container: {
+    width: '100%',
     marginVertical: Layout.spacing.sm,
   },
   label: {

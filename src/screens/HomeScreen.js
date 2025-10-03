@@ -8,6 +8,7 @@ import StatCard from '../components/StatCard';
 import ProgressBar from '../components/ProgressBar';
 import StatusBadge from '../components/StatusBadge';
 import DataTable from '../components/DataTable';
+import PieChart from '../components/PieChart';
 import { Colors } from '../constants/Colors';
 import { Layout } from '../constants/Layout';
 import { HomeViewModel } from '../viewmodels/HomeViewModel';
@@ -85,13 +86,22 @@ const HomeScreen = ({ navigation }) => {
         <View style={styles.gridRow}>
           <Section title="Patient Demographics" style={[styles.flexItem, styles.gridItem]}>
             <View style={styles.demographicsRow}>
-              <View style={styles.demographicBlock}><Text style={styles.cardText}>Age Distribution</Text></View>
-              <View style={styles.demographicBlock}><Text style={styles.cardText}>Gender Distribution</Text></View>
-            </View>
-            <View style={styles.legendRow}>
-              {['0-18','19-35','36-55','56+','Male','Female','Other'].map((l)=> (
-                <Text key={l} style={styles.legendText}>{l}</Text>
-              ))}
+              <View style={styles.demographicBlockCentered}>
+                {(() => {
+                  const ages = viewState.ageDistribution || { '0-18': 0, '19-35': 0, '36-55': 0, '56+': 0 };
+                  const ageData = [ages['0-18'], ages['19-35'], ages['36-55'], ages['56+']];
+                  const ageLabels = ['0-18', '19-35', '36-55', '56+'];
+                  return <PieChart title="Age" data={ageData} labels={ageLabels} size={140} />;
+                })()}
+              </View>
+              <View style={styles.demographicBlockCentered}>
+                {(() => {
+                  const genders = viewState.genderDistribution || { Male: 0, Female: 0, Other: 0 };
+                  const genderData = [genders.Male, genders.Female, genders.Other];
+                  const genderLabels = ['Male', 'Female', 'Other'];
+                  return <PieChart title="Gender" data={genderData} labels={genderLabels} size={140} colors={[Colors.primary, Colors.pink, Colors.success]} />;
+                })()}
+              </View>
             </View>
           </Section>
 
@@ -103,7 +113,12 @@ const HomeScreen = ({ navigation }) => {
         </View>
 
         <Section title="Scheduling Success Rate" style={styles.wideSection}>
-          <View style={styles.chartPlaceholder} />
+          <ProgressBar 
+            label={`Success (${viewState.appointmentsScheduled || 0}/${(viewState.recentAppointments || []).length})`} 
+            value={viewState.schedulingSuccessRate || 0}
+            color={Colors.primary}
+            trackColor={Colors.error}
+          />
         </Section>
 
         <Section title="Appointment Details" style={styles.wideSection}>
@@ -127,30 +142,7 @@ const HomeScreen = ({ navigation }) => {
           />
         </Section>
 
-        <Card style={styles.actionsCard}>
-          <Text style={styles.cardTitle}>Quick Actions</Text>
-          <View style={styles.actionsContainer}>
-            <Button
-              title="Create Automation"
-              variant="primary"
-              size="medium"
-              onPress={() => console.log('Create automation pressed')}
-              style={styles.actionButton}
-            />
-            <Button
-              title="View History"
-              variant="outline"
-              size="medium"
-              onPress={() => console.log('View history pressed')}
-              style={styles.actionButton}
-            />
-          </View>
-          {viewState.lastUpdated && (
-            <Text style={styles.lastUpdatedText}>
-              Last updated: {viewState.lastUpdated.toLocaleTimeString()}
-            </Text>
-          )}
-        </Card>
+        {/* Quick Actions removed as requested */}
       </ScrollView>
     </SafeAreaView>
   );
@@ -201,9 +193,17 @@ const styles = StyleSheet.create({
   },
   demographicBlock: {
     flex: 1,
-    height: 120,
     backgroundColor: Colors.background,
     borderRadius: Layout.borderRadius.md,
+    padding: Layout.spacing.md,
+    alignItems: 'stretch',
+    justifyContent: 'flex-start',
+  },
+  demographicBlockCentered: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    borderRadius: Layout.borderRadius.md,
+    padding: Layout.spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
   },

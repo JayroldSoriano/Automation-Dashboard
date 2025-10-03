@@ -4,6 +4,8 @@ export const Colors = {
   success: '#34C759',
   warning: '#FF9500',
   error: '#FF3B30',
+  pink: '#FFC0CB',
+  blue: '3a6686',
   background: '#F2F2F7',
   surface: '#FFFFFF',
   text: '#000000',
