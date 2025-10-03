@@ -36,14 +36,19 @@ const HomeScreen = ({ navigation }) => {
     // Load initial data
     viewModelRef.current.loadDashboardData();
     
-    // Start real-time updates
-    viewModelRef.current.startRealTimeUpdates();
+    // Poll every 5 seconds to refresh data (instead of realtime)
+    const intervalId = setInterval(() => {
+      if (viewModelRef.current) {
+        viewModelRef.current.refreshData();
+      }
+    }, 5000);
     
     // Cleanup on unmount
     return () => {
       if (viewModelRef.current) {
         viewModelRef.current.destroy();
       }
+      clearInterval(intervalId);
     };
   }, []);
 

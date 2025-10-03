@@ -27,7 +27,7 @@ export class HomeViewModel {
     
     try {
       // Fetch from appointment_analytics (authoritative source)
-      const selectColumns = 'id, patient_name, service_name, status, scheduled_date, scheduled_time, platform, successful_scheduling, created_at';
+      const selectColumns = 'appointment_id, patient_name, service_name, status, scheduled_date, scheduled_time, platform, successful_scheduling, created_at';
 
       const { data, error } = await supabase
         .from('appointment_analytics')
@@ -82,25 +82,6 @@ export class HomeViewModel {
 
   async refreshData() {
     await this.loadDashboardData();
-  }
-
-  startRealTimeUpdates() {
-    try {
-      // subscribe to table changes if you want auto-update
-      this.subscription = supabase
-        .channel('analytics_changes')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'appointment_analytics' },
-          () => {
-            this.loadDashboardData(); // refresh when data changes
-          }
-        )
-        .subscribe();
-    } catch (err) {
-      console.error('Real-time subscription error:', err);
-      // Continue without real-time updates if subscription fails
-    }
   }
 
   destroy() {

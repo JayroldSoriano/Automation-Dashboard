@@ -7,7 +7,6 @@ export const SUPABASE_CONFIG = {
   anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxeHBweHJwcnBxbXZ5YXJvdHpwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA2MzkyNjUsImV4cCI6MjA2NjIxNTI2NX0.g3lRkXtsFaopoATiwCtXj2EBKCbD6YuS5YbJgIHyzUI', // Your public anon key
   
   appointment_analytics: {
-    id: 'id',
     appointment_id: 'appointment_id',
     conversation_id: 'conversation_id',
     patient_name: 'patient_name',
