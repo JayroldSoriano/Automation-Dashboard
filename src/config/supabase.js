@@ -49,6 +49,17 @@ export const SUPABASE_CONFIG = {
       "scheduled_time": "scheduled_time",
       "status": "status",
       "appointment_created_at": "appointment_created_at"
+    },
+    "services": {
+      "service_id": "service_id",
+      "service_name": "service_name",
+      "service_description": "service_description",
+      "service_category": "service_category",
+      "service_price": "service_price",
+      "currency": "currency",
+      "duration_min": "duration_min",
+      "active": "active",
+      "updated_at": "updated_at"
     }
     
 };

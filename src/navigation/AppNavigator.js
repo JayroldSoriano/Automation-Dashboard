@@ -4,7 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from '../screens/HomeScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import AppointmentScreen from '../screens/AppointmentScreen';
-import AppointmentDetailsScreen from '../screens/AppointmentDetailsScreen'
+import AppointmentDetailsScreen from '../screens/AppointmentDetailsScreen';
+import ServicesScreen from '../screens/ServicesScreen';
 import { Colors } from '../constants/Colors';
 import { useResponsive } from '../utils/useResponsive';
 
@@ -17,6 +18,7 @@ const AppNavigator = () => {
     () => [
       { key: 'Dashboard', component: HomeScreen },
       { key: 'Appointment', component: AppointmentScreen },
+      { key: 'Services', component: ServicesScreen },
       { key: 'AppointmentDetailsScreen', component: AppointmentDetailsScreen },
       { key: 'Settings', component: SettingsScreen },
     ],
