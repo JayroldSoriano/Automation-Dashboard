@@ -11,16 +11,26 @@ import { useResponsive } from '../utils/useResponsive';
 const AppNavigator = () => {
   const { isWeb, breakpoint, scale } = useResponsive();
   const [activeRoute, setActiveRoute] = useState('Dashboard');
+  const [routeProps, setRouteProps] = useState({});
 
   const routes = useMemo(
     () => [
       { key: 'Dashboard', component: HomeScreen },
       { key: 'Appointment', component: AppointmentScreen },
-      { key: 'AppointmentDetailsScreen', component: AppointmentDetailsScreen }, // 👈 Add this
+      { key: 'AppointmentDetailsScreen', component: AppointmentDetailsScreen },
       { key: 'Settings', component: SettingsScreen },
     ],
     []
   );
+
+  // Navigation function to handle route changes with props
+  const navigate = (routeName, props = {}) => {
+    setActiveRoute(routeName);
+    setRouteProps((prev) => ({
+      ...prev,
+      [routeName]: props,
+    }));
+  };
   
 
   const headerHeight = isWeb ? (breakpoint === 'xl' || breakpoint === 'lg' ? 80 : 64) : 56;
@@ -67,7 +77,8 @@ const AppNavigator = () => {
         {routes.map((route) => {
           if (route.key !== activeRoute) return null;
           const Component = route.component;
-          return <Component key={route.key} />;
+          const props = routeProps[route.key] || {};
+          return <Component key={route.key} navigation={{ navigate }} {...props} />;
         })}
       </View>
     </View>

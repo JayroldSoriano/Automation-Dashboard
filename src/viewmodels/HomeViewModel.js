@@ -35,7 +35,7 @@ export class HomeViewModel {
     try {
       // Pull from the new view that denormalizes patients + appointments
       const selectColumns =
-        'appointment_id, patient_id, name, gender, age, service_name, service_category, service_price, status, scheduled_date, scheduled_time, appointment_created_at';
+        'appointment_id, patient_id, name, email, phone, gender, age, profilepicture, service_name, service_category, service_price, status, scheduled_date, scheduled_time, appointment_created_at';
 
       // Latest 50 appointments, ordered by date then time (multi-column order via chaining)
       const { data: appts, error: apptsError } = await supabase

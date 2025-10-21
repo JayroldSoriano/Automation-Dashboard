@@ -1,16 +1,18 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { Layout } from '../constants/Layout';
 import StatusBadge from '../components/StatusBadge';
 
-const AppointmentDetailsScreen = ({ appointment, onBack }) => {
+const AppointmentDetailsScreen = ({ appointment, navigation }) => {
+  console.log('AppointmentDetailsScreen received appointment:', appointment);
+  
   return (
     <ScrollView style={styles.container}>
       {/* Breadcrumb */}
       <View style={styles.breadcrumbContainer}>
-        <TouchableOpacity onPress={onBack}>
+        <TouchableOpacity onPress={() => navigation?.navigate('Appointment')}>
           <Text style={styles.breadcrumbText}>Appointments</Text>
         </TouchableOpacity>
         <Text style={styles.breadcrumbSeparator}>›</Text>
@@ -27,10 +29,19 @@ const AppointmentDetailsScreen = ({ appointment, onBack }) => {
         <View style={styles.leftCard}>
           {/* Patient Header */}
           <View style={styles.patientHeader}>
-            <View style={styles.avatarPlaceholder} />
+            {appointment?.profilepicture ? (
+              <Image 
+                source={{ uri: appointment.profilepicture }} 
+                style={styles.avatarImage}
+              />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <MaterialIcons name="person" size={30} color={Colors.textSecondary} />
+              </View>
+            )}
             <View style={styles.patientInfo}>
-              <Text style={styles.patientName}>{appointment?.patient_name || 'Unknown Patient'}</Text>
-              <Text style={styles.patientId}>Patient ID: {appointment?.id?.slice(0, 6) || '—'}</Text>
+              <Text style={styles.patientName}>{appointment?.name || 'Unknown Patient'}</Text>
+              <Text style={styles.patientId}>Patient ID: {appointment?.patient_id?.slice(0, 6) || '—'}</Text>
             </View>
             <View style={styles.headerActionButtons}>
               <TouchableOpacity style={[styles.headerActionButton, styles.doneBtn]}>
@@ -44,14 +55,33 @@ const AppointmentDetailsScreen = ({ appointment, onBack }) => {
             </View>
           </View>
 
-          {/* Appointment Info */}
-          <View style={styles.detailsSection}>
-            <Text style={styles.sectionTitle}>Appointment Details</Text>
-            <DetailRow label="Date & Time" value={`${appointment?.scheduled_date || '—'} ${appointment?.scheduled_time || ''}`} />
-            <DetailRow label="Reason for Visit" value={appointment?.service_name || '—'} />
-            <DetailRow label="Assigned Dentist" value={appointment?.assigned_dentist || 'Dr. Emily Carter'} />
-            <DetailRow label="Status" value={<StatusBadge status={appointment?.status} label={appointment?.status} />} />
-            <DetailRow label="Notes" value={appointment?.notes || 'No notes available.'} />
+          {/* Divider */}
+          <View style={styles.divider} />
+
+          {/* Details Sections Side by Side */}
+          <View style={styles.detailsRow}>
+            {/* Patient Details */}
+            <View style={styles.detailsSection}>
+              <Text style={styles.sectionTitle}>Patient Information</Text>
+              <DetailRow label="Patient Name" value={appointment?.name || '—'} />
+              <DetailRow label="Age" value={appointment?.age ? `${appointment.age} years old` : '—'} />
+              <DetailRow label="Gender" value={appointment?.gender || '—'} />
+              <DetailRow label="Phone" value={appointment?.phone || '—'} />
+              <DetailRow label="Email" value={appointment?.email || '—'} />
+              <DetailRow label="Location" value={appointment?.location || '—'} />
+            </View>
+
+            {/* Appointment Info */}
+            <View style={styles.detailsSection}>
+              <Text style={styles.sectionTitle}>Appointment Details</Text>
+              <DetailRow label="Appointment ID" value={appointment?.appointment_id || '—'} />
+              <DetailRow label="Date & Time" value={`${appointment?.scheduled_date || '—'} ${appointment?.scheduled_time || ''}`} />
+              <DetailRow label="Service" value={appointment?.service_name || '—'} />
+              <DetailRow label="Service Category" value={appointment?.service_category || '—'} />
+              <DetailRow label="Service Price" value={appointment?.service_price ? `$${appointment.service_price}` : '—'} />
+              <DetailRow label="Status" value={<StatusBadge status={appointment?.status} label={appointment?.status} />} />
+              <DetailRow label="Created At" value={appointment?.appointment_created_at ? new Date(appointment.appointment_created_at).toLocaleString() : '—'} />
+            </View>
           </View>
 
           {/* Quick Actions */}
@@ -84,15 +114,15 @@ const AppointmentDetailsScreen = ({ appointment, onBack }) => {
           <View style={styles.conversationContent}>
             {/* Chat Section */}
             <View style={styles.chatContainer}>
-              <View style={styles.chatBubbleLeft}>
-                <Text style={styles.chatText}>
-                  Hi Sophia, just a reminder about your appointment tomorrow at 10:00 AM.
-                </Text>
-                <Text style={styles.chatTimestamp}>July 19, 2024, 3:45 PM</Text>
-              </View>
               <View style={styles.chatBubbleRight}>
+                <Text style={styles.chatText}>
+                  Hi {appointment?.name?.split(' ')[0] || 'Patient'}, just a reminder about your appointment on {appointment?.scheduled_date || 'the scheduled date'} at {appointment?.scheduled_time || 'the scheduled time'}.
+                </Text>
+                <Text style={styles.chatTimestamp}>{new Date().toLocaleString()}</Text>
+              </View>
+              <View style={styles.chatBubbleLeft}>
                 <Text style={styles.chatText}>Thanks for the reminder! See you then.</Text>
-                <Text style={styles.chatTimestamp}>July 19, 2024, 4:02 PM</Text>
+                <Text style={styles.chatTimestamp}>{new Date().toLocaleString()}</Text>
               </View>
             </View>
 
@@ -154,7 +184,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   patientHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 18, justifyContent: 'space-between' },
-  avatarPlaceholder: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#1d293b' },
+  avatarPlaceholder: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#1d293b', alignItems: 'center', justifyContent: 'center' },
+  avatarImage: { width: 60, height: 60, borderRadius: 30 },
   patientInfo: { flex: 1 },
   patientName: { color: Colors.text, fontSize: 20, fontWeight: '700' },
   patientId: { color: Colors.textSecondary, fontSize: 14 },
@@ -172,7 +203,13 @@ const styles = StyleSheet.create({
   doneBtn: { backgroundColor: '#1B5E20' },
   cancelBtn: { backgroundColor: '#B71C1C' },
   headerActionText: { color: 'white', fontWeight: '600', fontSize: 12 },
-  detailsSection: { marginBottom: 22 },
+  divider: {
+    height: 1,
+    backgroundColor: '#1e2c35',
+    marginVertical: 16,
+  },
+  detailsRow: { flexDirection: 'row', gap: 24 },
+  detailsSection: { flex: 1, marginBottom: 22 },
   sectionTitle: { color: Colors.text, fontSize: 18, fontWeight: '700', marginBottom: 12 },
   detailRow: { marginBottom: 12 },
   detailLabel: { color: Colors.textSecondary, fontSize: 14, fontWeight: '600', marginBottom: 3 },

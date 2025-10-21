@@ -1,21 +1,44 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import StatusBadge from '../StatusBadge';
 import { processAppointmentsForTable } from '../../utils/dataUtils';
 import { HOME_SCREEN_CONSTANTS } from '../../constants/HomeScreen';
 import { Colors } from '../../constants/Colors';
 
-const AppointmentsSection = ({ appointments = [] }) => {
-  const tableData = processAppointmentsForTable(appointments);
+const AppointmentsSection = ({ appointments = [], onRowPress }) => {
+  console.log('AppointmentsSection received appointments:', appointments?.length || 0);
+  // Remove limit to show all appointments
+  const tableData = processAppointmentsForTable(appointments, appointments.length);
+  console.log('Processed table data:', tableData?.length || 0);
 
   const renderTableData = () => {
-    return tableData.map(({ key, data }) => [
-      <Text style={styles.cellSecondary}>{data[0]}</Text>, // Date
-      <Text style={styles.cellSecondary}>{data[1]}</Text>, // Time
-      <Text style={styles.cellPrimary}>{data[2]}</Text>, // Name
-      <Text style={styles.cellSecondary}>{data[3]}</Text>, // Email or Service
-      <StatusBadge key={`status-${key}`} status={data[4].status} label={data[4].label} />,
-    ]);
+    return tableData.map(({ key, data }, index) => {
+      const appointment = appointments[index];
+      return {
+        key,
+        data: [
+          <Text style={styles.cellSecondary}>{data[0]}</Text>, // Date
+          <Text style={styles.cellSecondary}>{data[1]}</Text>, // Time
+          data[2] ? ( // Profile Picture
+            <Image 
+              source={{ uri: data[2] }} 
+              style={styles.profileImage}
+            />
+          ) : (
+            <View style={styles.profilePlaceholder}>
+              <MaterialIcons name="person" size={20} color={Colors.textSecondary} />
+            </View>
+          ),
+          <Text style={styles.cellPrimary}>{data[3]}</Text>, // Patient Name
+          <Text style={styles.cellSecondary}>{data[4]}</Text>, // Email
+          <Text style={styles.cellSecondary}>{data[5]}</Text>, // Phone
+          <Text style={styles.cellSecondary}>{data[6]}</Text>, // Service
+          <StatusBadge key={`status-${key}`} status={data[7].status} label={data[7].label} />, // Status
+        ],
+        appointment
+      };
+    });
   };
 
   return (
@@ -30,23 +53,29 @@ const AppointmentsSection = ({ appointments = [] }) => {
       </View>
 
       {/* Table Body */}
-      <View style={styles.tableBody}>
-        {renderTableData().map((row, rowIndex) => (
-          <View
+      <ScrollView 
+        style={styles.tableBody}
+        showsVerticalScrollIndicator={true}
+        nestedScrollEnabled={true}
+      >
+        {renderTableData().map((rowData, rowIndex) => (
+          <TouchableOpacity
             key={`row-${rowIndex}`}
             style={[
               styles.tableRow,
               rowIndex === renderTableData().length - 1 && { borderBottomWidth: 0 },
             ]}
+            onPress={() => onRowPress && onRowPress(rowData.appointment)}
+            activeOpacity={0.7}
           >
-            {row.map((cell, colIndex) => (
+            {rowData.data.map((cell, colIndex) => (
               <View key={`cell-${colIndex}`} style={styles.cell}>
                 {cell}
               </View>
             ))}
-          </View>
+          </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
     </View>
   );
 };
@@ -57,6 +86,7 @@ const styles = {
     borderRadius: 8,
     overflow: 'hidden',
     marginBottom: 24,
+    height: 400, // Fixed height for the table
   },
   tableHeader: {
     flexDirection: 'row',
@@ -73,6 +103,7 @@ const styles = {
   },
   tableBody: {
     backgroundColor: '#111d22',
+    flex: 1, // Take remaining space after header
   },
   tableRow: {
     flexDirection: 'row',
@@ -93,6 +124,19 @@ const styles = {
     color: Colors.textSecondary,
     fontSize: 13,
     fontWeight: '500',
+  },
+  profileImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  profilePlaceholder: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1d293b',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 };
 
