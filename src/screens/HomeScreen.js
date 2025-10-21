@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconButton } from 'react-native-paper';
 
@@ -37,89 +37,90 @@ const HomeScreen = ({ navigation }) => {
   } = useHomeScreen();
 
   return (
-    <SafeAreaView style={homeScreenStyles.container}>
-      <ScrollView
-        contentContainerStyle={homeScreenStyles.scrollContent}
-        showsHorizontalScrollIndicator={false}
-        horizontal={false}
-      >
-        {/* Header Section */}
-        <View style={homeScreenStyles.header}>
-          <Text style={homeScreenStyles.title}>Dashboard</Text>
-          <Text style={homeScreenStyles.subtitle}>
-            Overview of key metrics and trends in automated processes.
-          </Text>
-        </View>
+    <ScrollView style={homeScreenStyles.container} showsVerticalScrollIndicator={true}>
+      {/* Breadcrumb */}
+      <View style={homeScreenStyles.breadcrumbContainer}>
+        <TouchableOpacity>
+          <Text style={homeScreenStyles.breadcrumbText}>Home</Text>
+        </TouchableOpacity>
+        <Text style={homeScreenStyles.breadcrumbSeparator}>›</Text>
+        <Text style={homeScreenStyles.breadcrumbActive}>Dashboard</Text>
+      </View>
 
-        {/* Top Statistics Row - updated */}
-        <View style={homeScreenStyles.topStatsRow}>
-          <StatCard 
-            title="Total Patients" 
-            value={viewState.totalPatients} 
-            style={homeScreenStyles.flexItem} 
-          />
-          <StatCard 
-            title="Appointments Scheduled" 
-            value={viewState.appointmentsScheduled} 
-            style={homeScreenStyles.flexItem} 
-          />
-          <StatCard 
-            title="Top Service" 
-            value={viewState.topService || 'Flu Vaccine'} 
-            style={homeScreenStyles.flexItem} 
-          />
-          <StatCard 
-            title="Top Platform" 
-            value={viewState.topPlatform || 'Facebook'} 
-            style={homeScreenStyles.flexItem} 
-          />
-        </View>
+      {/* Header */}
+      <Text style={homeScreenStyles.header}>Dashboard</Text>
+      <Text style={homeScreenStyles.subheader}>
+        Overview of key metrics and trends in automated processes.
+      </Text>
 
-        {/* Three Cards Row - Demographics, Platform, and Services */}
-        <View style={homeScreenStyles.threeCardsRow}>
-          <Section title="Patient Demographics" style={[homeScreenStyles.flexItem, homeScreenStyles.cardItem]}>
-            <DemographicsSection 
-              ageDistribution={viewState.ageDistribution}
-              genderDistribution={viewState.genderDistribution}
-            />
-          </Section>
+      {/* Top Statistics Row */}
+      <View style={homeScreenStyles.topStatsRow}>
+        <StatCard 
+          title="Total Patients" 
+          value={viewState.totalPatients} 
+          style={homeScreenStyles.flexItem} 
+        />
+        <StatCard 
+          title="Appointments Scheduled" 
+          value={viewState.appointmentsScheduled} 
+          style={homeScreenStyles.flexItem} 
+        />
+        <StatCard 
+          title="Top Service" 
+          value={viewState.topService || 'Flu Vaccine'} 
+          style={homeScreenStyles.flexItem} 
+        />
+        <StatCard 
+          title="Top Platform" 
+          value={viewState.topPlatform || 'Facebook'} 
+          style={homeScreenStyles.flexItem} 
+        />
+      </View>
 
-          <Section title="Platform Usage" style={[homeScreenStyles.flexItem, homeScreenStyles.cardItem]}>
-            <PlatformSection platformDistribution={viewState.platformDistribution} />
-          </Section>
-
-          <Section title="Top Requested Services" style={[homeScreenStyles.flexItem, homeScreenStyles.cardItem]}>
-            <ServicesSection serviceCategoryDistribution={viewState.serviceCategoryDistribution} />
-          </Section>
-        </View>
-
-        {/* Appointments Section */}
-        <Section
-          title="Appointments"
-          style={homeScreenStyles.wideSection}
-          right={
-            <IconButton
-              icon={toggleIcon}
-              size={22}
-              animated
-              onPress={toggleView}
-              accessibilityLabel={activeTab === 'Table' ? 'Switch to expanded cards' : 'Switch to table view'}
-            />
-          }
-        >
-          <AppointmentsSection
-            appointments={viewState.recentAppointments || []}
-            activeTab={activeTab}
-            toggleIcon={toggleIcon}
-            onToggleView={toggleView}
-            openMenuId={openMenuId}
-            onMenuOpen={handleMenuOpen}
-            onMenuClose={handleMenuClose}
-            onMenuAction={handleMenuAction}
+      {/* Three Cards Row - Demographics, Platform, and Services */}
+      <View style={homeScreenStyles.threeCardsRow}>
+        <Section title="Patient Demographics" style={[homeScreenStyles.flexItem, homeScreenStyles.cardItem]}>
+          <DemographicsSection 
+            ageDistribution={viewState.ageDistribution}
+            genderDistribution={viewState.genderDistribution}
           />
         </Section>
-      </ScrollView>
-    </SafeAreaView>
+
+        <Section title="Platform Usage" style={[homeScreenStyles.flexItem, homeScreenStyles.cardItem]}>
+          <PlatformSection platformDistribution={viewState.platformDistribution} />
+        </Section>
+
+        <Section title="Top Requested Services" style={[homeScreenStyles.flexItem, homeScreenStyles.cardItem]}>
+          <ServicesSection serviceCategoryDistribution={viewState.serviceCategoryDistribution} />
+        </Section>
+      </View>
+
+      {/* Appointments Section */}
+      <Section
+        title="Appointments"
+        style={homeScreenStyles.wideSection}
+        right={
+          <IconButton
+            icon={toggleIcon}
+            size={22}
+            animated
+            onPress={toggleView}
+            accessibilityLabel={activeTab === 'Table' ? 'Switch to expanded cards' : 'Switch to table view'}
+          />
+        }
+      >
+        <AppointmentsSection
+          appointments={viewState.recentAppointments || []}
+          activeTab={activeTab}
+          toggleIcon={toggleIcon}
+          onToggleView={toggleView}
+          openMenuId={openMenuId}
+          onMenuOpen={handleMenuOpen}
+          onMenuClose={handleMenuClose}
+          onMenuAction={handleMenuAction}
+        />
+      </Section>
+    </ScrollView>
   );
 };
 

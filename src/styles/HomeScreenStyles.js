@@ -7,45 +7,58 @@ export const homeScreenStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  scrollContent: {
-    padding: Layout.spacing.md,
-    width: '100%',
+  breadcrumbContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Layout.spacing.md,
+    paddingHorizontal: Layout.spacing.xl,
+    paddingTop: Layout.spacing.xl,
+  },
+  breadcrumbText: {
+    color: Colors.textSecondary,
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  breadcrumbSeparator: {
+    color: Colors.textSecondary,
+    marginHorizontal: 8,
+    fontSize: 16,
+  },
+  breadcrumbActive: {
+    color: Colors.text,
+    fontWeight: '600',
+    fontSize: 16,
+    lineHeight: 24,
   },
   header: {
-    alignItems: 'flex-start',
-    marginBottom: Layout.spacing.lg,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 26,
+    fontWeight: '700',
     color: Colors.text,
-    marginBottom: Layout.spacing.sm,
-    marginTop: Layout.spacing.sm,
+    marginBottom: 6,
+    lineHeight: 34,
+    paddingHorizontal: Layout.spacing.xl,
   },
-  subtitle: {
-    fontSize: 14,
+  subheader: {
+    fontSize: 16,
     color: Colors.textSecondary,
-    textAlign: 'left',
+    marginBottom: Layout.spacing.lg,
+    lineHeight: 24,
+    paddingHorizontal: Layout.spacing.xl,
   },
   topStatsRow: {
     flexDirection: 'row',
     gap: Layout.spacing.md,
     marginBottom: Layout.spacing.md,
+    paddingHorizontal: Layout.spacing.xl,
   },
   flexItem: {
-    flex: 1,
-  },
-  gridRow: {
-    flexDirection: 'row',
-    gap: Layout.spacing.md,
-  },
-  gridItem: {
     flex: 1,
   },
   threeCardsRow: {
     flexDirection: 'row',
     gap: Layout.spacing.md,
     marginBottom: Layout.spacing.lg,
+    paddingHorizontal: Layout.spacing.xl,
   },
   cardItem: {
     flex: 1,
@@ -53,6 +66,7 @@ export const homeScreenStyles = StyleSheet.create({
   },
   wideSection: {
     marginTop: Layout.spacing.md,
+    paddingHorizontal: Layout.spacing.xl,
   },
   emptyStateContainer: {
     padding: Layout.spacing.lg,

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from '../screens/HomeScreen';
 import SettingsScreen from '../screens/SettingsScreen';
@@ -8,6 +8,7 @@ import AppointmentDetailsScreen from '../screens/AppointmentDetailsScreen';
 import ServicesScreen from '../screens/ServicesScreen';
 import AddServiceScreen from '../screens/AddServiceScreen';
 import NotificationScreen from '../screens/NotificationScreen';
+import ReportsScreen from '../screens/ReportsScreen';
 import { Colors } from '../constants/Colors';
 import { useResponsive } from '../utils/useResponsive';
 
@@ -22,6 +23,7 @@ const AppNavigator = () => {
       { key: 'Appointment', component: AppointmentScreen },
       { key: 'Services', component: ServicesScreen },
       { key: 'Notifications', component: NotificationScreen },
+      { key: 'Reports', component: ReportsScreen },
       { key: 'Settings', component: SettingsScreen },
       { key: 'AppointmentDetailsScreen', component: AppointmentDetailsScreen },
       { key: 'AddServiceScreen', component: AddServiceScreen },
@@ -35,7 +37,7 @@ const AppNavigator = () => {
       { key: 'Dashboard', component: HomeScreen },
       { key: 'Appointment', component: AppointmentScreen },
       { key: 'Services', component: ServicesScreen },
-      { key: 'Notifications', component: NotificationScreen },
+      { key: 'Reports', component: ReportsScreen },
       { key: 'Settings', component: SettingsScreen },
     ],
     []
@@ -82,6 +84,13 @@ const AppNavigator = () => {
           </View>
         </View>
         <View style={styles.headerRight}>
+          <TouchableOpacity 
+            style={styles.notificationButton}
+            onPress={() => setActiveRoute('Notifications')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="notifications" size={24} color={Colors.textSecondary} />
+          </TouchableOpacity>
           <View style={[styles.avatar, { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 }]} />
         </View>
       </View>
@@ -141,8 +150,14 @@ const styles = StyleSheet.create({
     textTransform: 'none',
   },
   headerRight: {
-    width: 56,
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  notificationButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: 'transparent',
   },
   avatar: {
     backgroundColor: Colors.secondary,
