@@ -6,18 +6,15 @@ import { IconButton } from 'react-native-paper';
 // Components
 import Section from '../components/Section';
 import StatCard from '../components/StatCard';
-import ProgressBar from '../components/ProgressBar';
 import DemographicsSection from '../components/sections/DemographicsSection';
 import PlatformSection from '../components/sections/PlatformSection';
 import ServicesSection from '../components/sections/ServicesSection';
-import LocationSection from '../components/sections/LocationSection';
 import AppointmentsSection from '../components/sections/AppointmentsSection';
 
 // Hooks and Utils
 import { useHomeScreen } from '../hooks/useHomeScreen';
 
 // Constants and Styles
-import { Colors } from '../constants/Colors';
 import { Layout } from '../constants/Layout';
 import { homeScreenStyles } from '../styles/HomeScreenStyles';
 
@@ -54,7 +51,7 @@ const HomeScreen = ({ navigation }) => {
           </Text>
         </View>
 
-        {/* Top Statistics Row */}
+        {/* Top Statistics Row - updated */}
         <View style={homeScreenStyles.topStatsRow}>
           <StatCard 
             title="Total Patients" 
@@ -62,49 +59,39 @@ const HomeScreen = ({ navigation }) => {
             style={homeScreenStyles.flexItem} 
           />
           <StatCard 
-            title="Automations Running" 
-            value={viewState.automationsRunning} 
-            style={homeScreenStyles.flexItem} 
-          />
-          <StatCard 
             title="Appointments Scheduled" 
             value={viewState.appointmentsScheduled} 
             style={homeScreenStyles.flexItem} 
           />
+          <StatCard 
+            title="Top Service" 
+            value={viewState.topService || 'Flu Vaccine'} 
+            style={homeScreenStyles.flexItem} 
+          />
+          <StatCard 
+            title="Top Platform" 
+            value={viewState.topPlatform || 'Facebook'} 
+            style={homeScreenStyles.flexItem} 
+          />
         </View>
 
-        {/* Grid Row with Demographics, Platform, and Services */}
-        <View style={homeScreenStyles.gridRow}>
-          <Section title="Patient Demographics" style={[homeScreenStyles.flexItem, homeScreenStyles.gridItem]}>
+        {/* Three Cards Row - Demographics, Platform, and Services */}
+        <View style={homeScreenStyles.threeCardsRow}>
+          <Section title="Patient Demographics" style={[homeScreenStyles.flexItem, homeScreenStyles.cardItem]}>
             <DemographicsSection 
               ageDistribution={viewState.ageDistribution}
               genderDistribution={viewState.genderDistribution}
             />
           </Section>
 
-          <Section title="Platform Usage" style={[homeScreenStyles.flexItem, homeScreenStyles.gridItem]}>
+          <Section title="Platform Usage" style={[homeScreenStyles.flexItem, homeScreenStyles.cardItem]}>
             <PlatformSection platformDistribution={viewState.platformDistribution} />
           </Section>
 
-          <Section title="Services" style={[homeScreenStyles.flexItem, homeScreenStyles.gridItem]}>
+          <Section title="Top Requested Services" style={[homeScreenStyles.flexItem, homeScreenStyles.cardItem]}>
             <ServicesSection serviceCategoryDistribution={viewState.serviceCategoryDistribution} />
           </Section>
         </View>
-
-        {/* Location Distribution Section */}
-        <Section title="Location Distribution" style={homeScreenStyles.wideSection}>
-          <LocationSection locationDistribution={viewState.locationDistribution} />
-        </Section>
-
-        {/* Scheduling Success Rate Section */}
-        <Section title="Scheduling Success Rate" style={homeScreenStyles.wideSection}>
-          <ProgressBar
-            label={`Success (${viewState.appointmentsScheduled || 0}/${(viewState.recentAppointments || []).length})`}
-            value={viewState.schedulingSuccessRate || 0}
-            color={Colors.primary}
-            trackColor={Colors.error}
-          />
-        </Section>
 
         {/* Appointments Section */}
         <Section

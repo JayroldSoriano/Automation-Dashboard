@@ -1,15 +1,15 @@
 export const Colors = {
-  primary: '#007AFF',
-  secondary: '#5856D6',
-  success: '#34C759',
-  warning: '#FF9500',
-  error: '#FF3B30',
-  pink: '#FFC0CB',
-  blue: '3a6686',
-  background: '#F2F2F7',
-  surface: '#FFFFFF',
-  text: '#000000',
-  textSecondary: '#8E8E93',
-  border: '#C6C6C8',
-  shadow: '#000000',
+  primary: '#4A90E2', // Dark blue for primary actions
+  secondary: '#2C3E50', // Dark blue-gray for secondary elements
+  success: '#27AE60', // Darker green for success states
+  warning: '#F39C12', // Darker orange for warnings
+  error: '#E74C3C', // Darker red for errors
+  pink: '#E91E63', // Darker pink
+  blue: '#34495E', // Dark blue-gray
+  background: '#111d22', // Very dark gray background
+  surface: '#1d293b', // Dark gray for surfaces/cards
+  text: '#FFFFFF', // White text for dark mode
+  textSecondary: '#B0B0B0', // Light gray for secondary text
+  border: '#404040', // Dark gray for borders
+  shadow: '#000000', // Black shadow
 };

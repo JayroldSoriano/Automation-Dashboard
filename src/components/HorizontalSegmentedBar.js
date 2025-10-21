@@ -9,7 +9,10 @@ const HorizontalSegmentedBar = ({
   colors = [], 
   title, 
   highlightIndex = 0,
-  showHighlight = true 
+  showHighlight = true,
+  showLabels = false,
+  showValues = true,
+  barLabelStyle
 }) => {
   const total = data.reduce((sum, val) => sum + val, 0);
   
@@ -58,6 +61,24 @@ const HorizontalSegmentedBar = ({
         </View>
       </View>
 
+      {/* Labels below the bar */}
+      {showLabels && (
+        <View style={styles.labelsContainer}>
+          {segments.map((segment, index) => {
+            const isStringLabel = typeof segment.label === 'string';
+            return isStringLabel ? (
+              <Text key={index} style={[styles.barLabel, barLabelStyle]}>
+                {segment.label}
+              </Text>
+            ) : (
+              <View key={index} style={{ flex: 1, alignItems: 'center' }}>
+                {segment.label}
+              </View>
+            );
+          })}
+        </View>
+      )}
+
       {/* Highlighted Category Information */}
       {showHighlight && segments[highlightIndex] && (
         <View style={styles.highlightInfo}>
@@ -73,16 +94,18 @@ const HorizontalSegmentedBar = ({
       )}
 
       {/* All Categories Legend */}
-      <View style={styles.legend}>
-        {segments.map((segment, index) => (
-          <View key={index} style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: segment.color }]} />
-            <Text style={styles.legendLabel}>{segment.label}</Text>
-            <Text style={styles.legendValue}>{segment.value}</Text>
-            <Text style={styles.legendPercentage}>{Math.round(segment.percentage)}%</Text>
-          </View>
-        ))}
-      </View>
+      {showValues && (
+        <View style={styles.legend}>
+          {segments.map((segment, index) => (
+            <View key={index} style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: segment.color }]} />
+              <Text style={styles.legendLabel}>{segment.label}</Text>
+              <Text style={styles.legendValue}>{segment.value}</Text>
+              <Text style={styles.legendPercentage}>{Math.round(segment.percentage)}%</Text>
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 };
@@ -99,6 +122,17 @@ const styles = StyleSheet.create({
   },
   barContainer: {
     marginBottom: Layout.spacing.sm,
+  },
+  labelsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  barLabel: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    flex: 1,
   },
   bar: {
     height: 12,

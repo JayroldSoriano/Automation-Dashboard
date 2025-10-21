@@ -27,7 +27,11 @@ const CircularSegmentedChart = ({
   size = 120,
   centerIcon = null,
   centerValue = null,
-  centerLabel = null
+  centerLabel = null,
+  donut = false,
+  donutRadius = 0.6,
+  showCenterValue = true,
+  showLegend = true
 }) => {
   const total = data.reduce((sum, val) => sum + val, 0);
   
@@ -45,7 +49,7 @@ const CircularSegmentedChart = ({
   const radius = size / 2;
   const cx = radius;
   const cy = radius;
-  const innerRadius = radius * 0.6; // Inner radius for the donut effect
+  const innerRadius = donut ? radius * donutRadius : 0; // Inner radius for the donut effect
 
   let startAngle = 0;
   const palette = Array.isArray(colors) && colors.length > 0 ? colors : [Colors.primary, Colors.secondary, Colors.success, Colors.warning, Colors.error];
@@ -57,10 +61,10 @@ const CircularSegmentedChart = ({
     
     // Create outer arc
     const outerPath = describeArc(cx, cy, radius, startAngle, endAngle);
-    // Create inner arc (reversed for donut effect)
-    const innerPath = describeArc(cx, cy, innerRadius, endAngle, startAngle);
+    // Create inner arc (reversed for donut effect) if donut is enabled
+    const innerPath = donut ? describeArc(cx, cy, innerRadius, endAngle, startAngle) : '';
     // Combine paths
-    const path = `${outerPath} ${innerPath} Z`;
+    const path = donut ? `${outerPath} ${innerPath} Z` : `${outerPath} L ${cx} ${cy} Z`;
     
     const color = palette[index % palette.length];
     const result = { path, color, value, pct: Math.round(pct), label: labels[index] || `Item ${index + 1}` };
@@ -82,32 +86,36 @@ const CircularSegmentedChart = ({
         </Svg>
         
         {/* Center Content */}
-        <View style={styles.centerContent}>
-          {centerIcon && (
-            <View style={styles.centerIcon}>
-              {centerIcon}
-            </View>
-          )}
-          {centerValue && (
-            <Text style={styles.centerValue}>{centerValue.toLocaleString()}</Text>
-          )}
-          {centerLabel && (
-            <Text style={styles.centerLabel}>{centerLabel}</Text>
-          )}
-        </View>
+        {showCenterValue && (
+          <View style={styles.centerContent}>
+            {centerIcon && (
+              <View style={styles.centerIcon}>
+                {centerIcon}
+              </View>
+            )}
+            {centerValue && (
+              <Text style={styles.centerValue}>{centerValue.toLocaleString()}</Text>
+            )}
+            {centerLabel && (
+              <Text style={styles.centerLabel}>{centerLabel}</Text>
+            )}
+          </View>
+        )}
       </View>
 
       {/* Legend */}
-      <View style={styles.legend}>
-        {segments.map((segment, index) => (
-          <View key={index} style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: segment.color }]} />
-            <Text style={styles.legendLabel}>{segment.label}</Text>
-            <Text style={styles.legendValue}>{segment.value.toLocaleString()}</Text>
-            <Text style={styles.legendPercentage}>{segment.pct}%</Text>
-          </View>
-        ))}
-      </View>
+      {showLegend && (
+        <View style={styles.legend}>
+          {segments.map((segment, index) => (
+            <View key={index} style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: segment.color }]} />
+              <Text style={styles.legendLabel}>{segment.label}</Text>
+              <Text style={styles.legendValue}>{segment.value.toLocaleString()}</Text>
+              <Text style={styles.legendPercentage}>{segment.pct}%</Text>
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 };

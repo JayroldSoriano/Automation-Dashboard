@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from '../screens/HomeScreen';
 import SettingsScreen from '../screens/SettingsScreen';
-import ReportsScreen from '../screens/ReportsScreen';
+import AppointmentScreen from '../screens/AppointmentScreen';
+import AppointmentDetailsScreen from '../screens/AppointmentDetailsScreen'
 import { Colors } from '../constants/Colors';
 import { useResponsive } from '../utils/useResponsive';
 
@@ -14,11 +15,13 @@ const AppNavigator = () => {
   const routes = useMemo(
     () => [
       { key: 'Dashboard', component: HomeScreen },
-      { key: 'Reports', component: ReportsScreen },
+      { key: 'Appointment', component: AppointmentScreen },
+      { key: 'AppointmentDetailsScreen', component: AppointmentDetailsScreen }, // 👈 Add this
       { key: 'Settings', component: SettingsScreen },
     ],
     []
   );
+  
 
   const headerHeight = isWeb ? (breakpoint === 'xl' || breakpoint === 'lg' ? 80 : 64) : 56;
   const logoSize = isWeb ? (breakpoint === 'xl' || breakpoint === 'lg' ? 28 : 24) : 22;
@@ -113,7 +116,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   avatar: {
-    backgroundColor: '#F2D6C9',
+    backgroundColor: Colors.secondary,
   },
   screenContainer: {
     flex: 1,

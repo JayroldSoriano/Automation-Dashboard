@@ -42,6 +42,15 @@ export const homeScreenStyles = StyleSheet.create({
   gridItem: {
     flex: 1,
   },
+  threeCardsRow: {
+    flexDirection: 'row',
+    gap: Layout.spacing.md,
+    marginBottom: Layout.spacing.lg,
+  },
+  cardItem: {
+    flex: 1,
+    minHeight: 400,
+  },
   wideSection: {
     marginTop: Layout.spacing.md,
   },
@@ -128,7 +137,7 @@ export const locationStyles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: Layout.spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
+    borderBottomColor: Colors.border,
   },
   locationPlaceContainer: {
     flex: 1,
@@ -183,9 +192,9 @@ export const appointmentsStyles = StyleSheet.create({
     width: '31%',
     minWidth: 200,
     padding: 16,
-    backgroundColor: '#FFF',
+    backgroundColor: Colors.surface,
     borderRadius: 8,
-    shadowColor: '#000',
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -207,36 +216,36 @@ export const appointmentsStyles = StyleSheet.create({
   expandedTitleSmall: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
+    color: Colors.text,
     flex: 1,
     marginRight: 8,
   },
   expandedSubtitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#666',
+    color: Colors.textSecondary,
     marginRight: 8,
   },
   cardName: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
+    color: Colors.text,
     flex: 1,
     marginRight: 8,
   },
   timePassedText: {
     fontSize: 12,
-    color: '#666',
+    color: Colors.textSecondary,
     flexShrink: 0,
   },
   dividerThin: {
     height: 1,
-    backgroundColor: '#E5E5E5',
+    backgroundColor: Colors.border,
     marginVertical: 12,
   },
   inquiryNumber: {
     fontSize: 12,
-    color: '#666',
+    color: Colors.textSecondary,
     marginBottom: 12,
   },
   bottomRow: {
@@ -250,23 +259,23 @@ export const appointmentsStyles = StyleSheet.create({
   },
   appointmentRequestLabel: {
     fontSize: 12,
-    color: '#666',
+    color: Colors.textSecondary,
     marginBottom: 4,
   },
   appointmentDate: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#000',
+    color: Colors.text,
   },
   actionButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: Colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 6,
     marginLeft: 12,
   },
   actionButtonText: {
-    color: '#FFF',
+    color: Colors.text,
     fontSize: 13,
     fontWeight: '600',
   },
