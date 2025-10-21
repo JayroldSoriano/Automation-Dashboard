@@ -7,6 +7,7 @@ import AppointmentScreen from '../screens/AppointmentScreen';
 import AppointmentDetailsScreen from '../screens/AppointmentDetailsScreen';
 import ServicesScreen from '../screens/ServicesScreen';
 import AddServiceScreen from '../screens/AddServiceScreen';
+import NotificationScreen from '../screens/NotificationScreen';
 import { Colors } from '../constants/Colors';
 import { useResponsive } from '../utils/useResponsive';
 
@@ -20,8 +21,21 @@ const AppNavigator = () => {
       { key: 'Dashboard', component: HomeScreen },
       { key: 'Appointment', component: AppointmentScreen },
       { key: 'Services', component: ServicesScreen },
+      { key: 'Notifications', component: NotificationScreen },
+      { key: 'Settings', component: SettingsScreen },
       { key: 'AppointmentDetailsScreen', component: AppointmentDetailsScreen },
       { key: 'AddServiceScreen', component: AddServiceScreen },
+    ],
+    []
+  );
+
+  // Main navigation menu items (excludes detail/add screens)
+  const mainMenuItems = useMemo(
+    () => [
+      { key: 'Dashboard', component: HomeScreen },
+      { key: 'Appointment', component: AppointmentScreen },
+      { key: 'Services', component: ServicesScreen },
+      { key: 'Notifications', component: NotificationScreen },
       { key: 'Settings', component: SettingsScreen },
     ],
     []
@@ -50,7 +64,7 @@ const AppNavigator = () => {
         </View>
         <View style={styles.headerCenter}>
           <View style={styles.linksRow}>
-            {routes.map((route) => {
+            {mainMenuItems.map((route) => {
               const isActive = activeRoute === route.key;
               return (
                 <Pressable key={route.key} onPress={() => setActiveRoute(route.key)} style={styles.linkItem}>
