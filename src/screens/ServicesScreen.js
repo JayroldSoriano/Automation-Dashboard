@@ -105,8 +105,11 @@ const ServicesScreen = ({ navigation }) => {
   };
 
   const handleAddNew = () => {
-    console.log('Add new service');
-    // TODO: Implement add new service functionality
+    if (navigation) {
+      navigation.navigate('AddServiceScreen');
+    } else {
+      console.log('Navigation not available');
+    }
   };
 
   if (loading) {

@@ -6,6 +6,7 @@ import SettingsScreen from '../screens/SettingsScreen';
 import AppointmentScreen from '../screens/AppointmentScreen';
 import AppointmentDetailsScreen from '../screens/AppointmentDetailsScreen';
 import ServicesScreen from '../screens/ServicesScreen';
+import AddServiceScreen from '../screens/AddServiceScreen';
 import { Colors } from '../constants/Colors';
 import { useResponsive } from '../utils/useResponsive';
 
@@ -20,6 +21,7 @@ const AppNavigator = () => {
       { key: 'Appointment', component: AppointmentScreen },
       { key: 'Services', component: ServicesScreen },
       { key: 'AppointmentDetailsScreen', component: AppointmentDetailsScreen },
+      { key: 'AddServiceScreen', component: AddServiceScreen },
       { key: 'Settings', component: SettingsScreen },
     ],
     []
