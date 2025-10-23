@@ -1,12 +1,70 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, Alert, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { Layout } from '../constants/Layout';
 import StatusBadge from '../components/StatusBadge';
+import { chatService } from '../services/chatService';
 
-const AppointmentDetailsScreen = ({ appointment, navigation }) => {
-  console.log('AppointmentDetailsScreen received appointment:', appointment);
+const AppointmentDetailsScreen = ({ appointment, chatHistory = [], navigation }) => {
+  
+  // State for chat functionality
+  const [chatMessages, setChatMessages] = useState(chatHistory);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isAIAgentActive, setIsAIAgentActive] = useState(true);
+  const scrollViewRef = useRef(null);
+
+  // Update chat messages when chatHistory prop changes
+  useEffect(() => {
+    setChatMessages(chatHistory);
+  }, [chatHistory]);
+
+  const refreshChatHistory = async () => {
+    if (!appointment?.sender_id) return;
+    
+    try {
+      setIsLoading(true);
+      const messages = await chatService.getChatHistory(appointment.sender_id);
+      setChatMessages(messages);
+    } catch (error) {
+      console.error('Error refreshing chat history:', error);
+      Alert.alert('Error', 'Failed to refresh chat history');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+
+
+  const formatTimestamp = (timestamp) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInHours = (now - date) / (1000 * 60 * 60);
+    
+    if (diffInHours < 24) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else if (diffInHours < 168) { // 7 days
+      return date.toLocaleDateString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+    } else {
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+  };
+
+
+  const renderChatMessage = (message) => {
+    const isBot = message.role === 'bot';
+    
+    return (
+      <View key={message.id} style={[
+        isBot ? styles.chatBubbleRight : styles.chatBubbleLeft
+      ]}>
+        <Text style={styles.chatText}>{message.text}</Text>
+        <View style={styles.messageFooter}>
+          <Text style={styles.chatTimestamp}>{formatTimestamp(message.created_at)}</Text>
+        </View>
+      </View>
+    );
+  };
   
   return (
     <ScrollView style={styles.container}>
@@ -105,31 +163,53 @@ const AppointmentDetailsScreen = ({ appointment, navigation }) => {
         <View style={styles.rightCard}>
           <View style={styles.conversationHeader}>
             <Text style={styles.sectionTitle}>Conversation with Messaging</Text>
-            <View style={styles.agentToggle}>
-              <Text style={styles.toggleLabel}>AI Agent Active</Text>
-              <Switch value={true} onValueChange={() => {}} />
+            <View style={styles.headerControls}>
+              <TouchableOpacity 
+                style={styles.refreshButton}
+                onPress={refreshChatHistory}
+                disabled={isLoading}
+              >
+                <MaterialIcons 
+                  name="refresh" 
+                  size={16} 
+                  color={isLoading ? Colors.textSecondary : Colors.text} 
+                />
+              </TouchableOpacity>
+              <View style={styles.agentToggle}>
+                <Text style={styles.toggleLabel}>AI Agent Active</Text>
+                <Switch 
+                  value={isAIAgentActive} 
+                  onValueChange={setIsAIAgentActive}
+                  trackColor={{ false: '#767577', true: '#0277BD' }}
+                  thumbColor={isAIAgentActive ? '#ffffff' : '#f4f3f4'}
+                />
+              </View>
             </View>
           </View>
 
           <View style={styles.conversationContent}>
             {/* Chat Section */}
-            <View style={styles.chatContainer}>
-              <View style={styles.chatBubbleRight}>
-                <Text style={styles.chatText}>
-                  Hi {appointment?.name?.split(' ')[0] || 'Patient'}, just a reminder about your appointment on {appointment?.scheduled_date || 'the scheduled date'} at {appointment?.scheduled_time || 'the scheduled time'}.
-                </Text>
-                <Text style={styles.chatTimestamp}>{new Date().toLocaleString()}</Text>
-              </View>
-              <View style={styles.chatBubbleLeft}>
-                <Text style={styles.chatText}>Thanks for the reminder! See you then.</Text>
-                <Text style={styles.chatTimestamp}>{new Date().toLocaleString()}</Text>
-              </View>
+            <View style={styles.chatSection}>
+              <ScrollView 
+                ref={scrollViewRef}
+                style={styles.chatScrollView} 
+                contentContainerStyle={styles.chatContainer}
+                showsVerticalScrollIndicator={false}
+              >
+                {isLoading && chatMessages.length === 0 ? (
+                  <View style={styles.loadingContainer}>
+                    <Text style={styles.loadingText}>Loading chat history...</Text>
+                  </View>
+                ) : chatMessages.length === 0 ? (
+                  <View style={styles.emptyChatContainer}>
+                    <Text style={styles.emptyChatText}>No messages yet. Start a conversation!</Text>
+                  </View>
+                ) : (
+                  chatMessages.map(renderChatMessage)
+                )}
+              </ScrollView>
             </View>
 
-            {/* Input Box */}
-            <View style={styles.inputBox}>
-              <Text style={styles.inputPlaceholder}>Type a message...</Text>
-            </View>
           </View>
         </View>
       </View>
@@ -224,12 +304,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   quickBtnText: { color: 'white', fontWeight: '600', fontSize: 14 },
-  conversationHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  conversationContent: { flex: 1, justifyContent: 'space-between' },
+  conversationHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  conversationContent: { flexDirection: 'column' },
+  headerControls: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  refreshButton: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: '#1e2c35',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   agentToggle: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   toggleLabel: { color: Colors.textSecondary, fontSize: 14 },
-  chatContainer: { 
+  chatSection: {
+    height: 450,
+  },
+  chatScrollView: {
     flex: 1,
+  },
+  chatContainer: { 
+    flexGrow: 1,
     gap: 16, 
     justifyContent: 'flex-start',
   },
@@ -248,9 +342,34 @@ const styles = StyleSheet.create({
     maxWidth: '80%',
   },
   chatText: { color: 'white', fontSize: 14, lineHeight: 20 },
-  chatTimestamp: { color: Colors.textSecondary, fontSize: 12, marginTop: 4 },
-  inputBox: { backgroundColor: '#172131', padding: 12, borderRadius: 8 },
-  inputPlaceholder: { color: Colors.textSecondary, fontSize: 14 },
+  messageFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  chatTimestamp: { color: Colors.textSecondary, fontSize: 12 },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  loadingText: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+  },
+  emptyChatContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  emptyChatText: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    textAlign: 'center',
+  },
 });
 
 export default AppointmentDetailsScreen;

@@ -48,7 +48,8 @@ export const SUPABASE_CONFIG = {
       "scheduled_date": "scheduled_date",
       "scheduled_time": "scheduled_time",
       "status": "status",
-      "appointment_created_at": "appointment_created_at"
+      "appointment_created_at": "appointment_created_at",
+      "sender_id": "sender_id"
     },
     "services": {
       "service_id": "service_id",
@@ -60,6 +61,14 @@ export const SUPABASE_CONFIG = {
       "duration_min": "duration_min",
       "active": "active",
       "updated_at": "updated_at"
+    },
+    "chat_history": {
+      "id": "id",
+      "sender_id": "sender_id",
+      "text": "text",
+      "platform": "platform",
+      "role": "role",
+      "created_at": "created_at"
     }
     
 };

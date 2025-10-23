@@ -6,6 +6,7 @@ import { supabase } from '../config/supabase';
 import { Colors } from '../constants/Colors';
 import { Layout } from '../constants/Layout';
 import AppointmentsSection from '../components/sections/AppointmentsSection';
+import { chatService } from '../services/chatService';
 
 const AppointmentScreen = ({ navigation }) => {
   const [appointments, setAppointments] = useState([]);
@@ -23,7 +24,7 @@ const AppointmentScreen = ({ navigation }) => {
       try {
         // Use the same pattern as HomeViewModel.js - fetch from appointment_details view
         const selectColumns = 
-          'appointment_id, patient_id, name, email, phone, gender, age, profilepicture, service_name, service_category, service_price, status, scheduled_date, scheduled_time, appointment_created_at';
+          'appointment_id, patient_id, sender_id, name, email, phone, gender, age, profilepicture, service_name, service_category, service_price, status, scheduled_date, scheduled_time, appointment_created_at';
 
         const { data, error } = await supabase
           .from('appointment_details')
@@ -33,8 +34,6 @@ const AppointmentScreen = ({ navigation }) => {
 
         if (error) throw error;
         
-        console.log('Fetched appointments count:', data?.length || 0);
-        console.log('Sample appointment data:', data?.[0]);
         setAppointments(data || []);
       } catch (err) {
         console.error('Error fetching appointments:', err);
@@ -47,9 +46,25 @@ const AppointmentScreen = ({ navigation }) => {
     fetchAppointments();
   }, []);
 
-  const handleRowPress = (appointment) => {
+  const handleRowPress = async (appointment) => {
     if (navigation) {
-      navigation.navigate('AppointmentDetailsScreen', { appointment });
+      try {
+        // Fetch chat history for this appointment
+        const chatHistory = await chatService.getChatHistory(appointment.sender_id);
+        
+        // Pass both appointment and chat history to details screen
+        navigation.navigate('AppointmentDetailsScreen', { 
+          appointment,
+          chatHistory 
+        });
+      } catch (error) {
+        console.error('Error fetching chat history:', error);
+        // Still navigate even if chat history fails
+        navigation.navigate('AppointmentDetailsScreen', { 
+          appointment,
+          chatHistory: [] 
+        });
+      }
     } else {
       // Fallback for when navigation is not available
       console.log('Navigation not available, appointment data:', appointment);
