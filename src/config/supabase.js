@@ -18,7 +18,9 @@ export const SUPABASE_CONFIG = {
       "created_at": "created_at",
       "sender_id": "sender_id",
       "last_agent": "last_agent",
-      "platform": "platform"
+      "platform": "platform",
+      "session_id": "session_id",
+      "isbotactive": "isbotactive"
     },
     "appointments": {
       "id": "id",

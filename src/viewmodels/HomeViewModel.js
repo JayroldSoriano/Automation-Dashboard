@@ -47,6 +47,31 @@ export class HomeViewModel {
 
       if (apptsError) throw apptsError;
 
+      // Fetch isbotactive status from patients table for each appointment
+      const senderIds = [...new Set(appts.map(apt => apt.sender_id).filter(Boolean))];
+      let patientBotStatuses = {};
+      
+      if (senderIds.length > 0) {
+        const { data: patients, error: patientsError } = await supabase
+          .from('patients')
+          .select('sender_id, isbotactive')
+          .in('sender_id', senderIds);
+        
+        if (patientsError) throw patientsError;
+        
+        // Create a map of sender_id to isbotactive status
+        patientBotStatuses = patients.reduce((acc, patient) => {
+          acc[patient.sender_id] = patient.isbotactive;
+          return acc;
+        }, {});
+      }
+
+      // Merge isbotactive status into appointments
+      const appointmentsWithBotStatus = appts.map(apt => ({
+        ...apt,
+        isbotactive: patientBotStatuses[apt.sender_id] !== false // Default to true if not found
+      }));
+
       // Total distinct patients (authoritative)
       const { count: patientsCount, error: patientsCountError } = await supabase
         .from('patients')
@@ -94,7 +119,7 @@ export class HomeViewModel {
       const locationBuckets = {};
       let successfulCount = 0;
 
-      for (const row of appts || []) {
+      for (const row of appointmentsWithBotStatus || []) {
         // Age buckets
         const rawAge = row.age;
         let ageNum =
@@ -147,7 +172,7 @@ export class HomeViewModel {
         }
       }
 
-      const totalAppointments = (appts || []).length;
+      const totalAppointments = (appointmentsWithBotStatus || []).length;
       const successRate =
         totalAppointments > 0
           ? Math.round((successfulCount / totalAppointments) * 100)
@@ -165,7 +190,7 @@ export class HomeViewModel {
           typeof patientsCount === 'number' ? patientsCount : 0,
         automationsRunning: agentSet.size,
         appointmentsScheduled: successfulCount,
-        recentAppointments: appts || [],
+        recentAppointments: appointmentsWithBotStatus || [],
         isLoading: false,
         lastUpdated: new Date(),
         ageDistribution: ageBuckets,

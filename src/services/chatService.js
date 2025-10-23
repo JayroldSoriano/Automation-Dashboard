@@ -58,5 +58,30 @@ export const chatService = {
       console.error('Error in addMessage:', error);
       throw error;
     }
+  },
+
+  // Update patient's bot active status
+  async updatePatientBotStatus(senderId, isBotActive) {
+    try {
+      if (!senderId) {
+        throw new Error('Missing sender_id parameter');
+      }
+
+      const { data, error } = await supabase
+        .from('patients')
+        .update({ isbotactive: isBotActive })
+        .eq('sender_id', senderId)
+        .select();
+
+      if (error) {
+        console.error('Error updating patient bot status:', error);
+        throw new Error(`Failed to update bot status: ${error.message}`);
+      }
+
+      return data?.[0] || null;
+    } catch (error) {
+      console.error('Error in updatePatientBotStatus:', error);
+      throw error;
+    }
   }
 };

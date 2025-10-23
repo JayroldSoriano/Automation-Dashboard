@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator, Modal } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { Layout } from '../constants/Layout';
@@ -11,7 +11,10 @@ const AppointmentDetailsScreen = ({ appointment, chatHistory = [], navigation })
   // State for chat functionality
   const [chatMessages, setChatMessages] = useState(chatHistory);
   const [isLoading, setIsLoading] = useState(false);
-  const [isAIAgentActive, setIsAIAgentActive] = useState(true);
+  const [isAIAgentActive, setIsAIAgentActive] = useState(appointment?.isbotactive !== false);
+  const [isUpdatingBotStatus, setIsUpdatingBotStatus] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingBotStatus, setPendingBotStatus] = useState(null);
   const scrollViewRef = useRef(null);
 
   // Update chat messages when chatHistory prop changes
@@ -32,6 +35,50 @@ const AppointmentDetailsScreen = ({ appointment, chatHistory = [], navigation })
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleBotStatusToggle = (newValue) => {
+    if (!appointment?.sender_id) {
+      Alert.alert('Error', 'No patient sender ID available');
+      return;
+    }
+
+    // Show confirmation modal for both enable and disable actions
+    setPendingBotStatus(newValue);
+    setShowConfirmModal(true);
+  };
+
+  const updateBotStatus = async (newValue) => {
+    try {
+      setIsUpdatingBotStatus(true);
+      await chatService.updatePatientBotStatus(appointment.sender_id, newValue);
+      setIsAIAgentActive(newValue);
+      
+      // Show success message
+      Alert.alert(
+        'Success', 
+        `AI Agent ${newValue ? 'activated' : 'deactivated'} successfully`,
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Error updating bot status:', error);
+      Alert.alert('Error', 'Failed to update AI Agent status');
+    } finally {
+      setIsUpdatingBotStatus(false);
+    }
+  };
+
+  const handleConfirmDisable = () => {
+    setShowConfirmModal(false);
+    if (pendingBotStatus !== null) {
+      updateBotStatus(pendingBotStatus);
+      setPendingBotStatus(null);
+    }
+  };
+
+  const handleCancelDisable = () => {
+    setShowConfirmModal(false);
+    setPendingBotStatus(null);
   };
 
 
@@ -65,6 +112,11 @@ const AppointmentDetailsScreen = ({ appointment, chatHistory = [], navigation })
       </View>
     );
   };
+
+  // Sort messages with newest at the bottom
+  const sortedMessages = [...chatMessages].sort((a, b) => 
+    new Date(a.created_at) - new Date(b.created_at)
+  );
   
   return (
     <ScrollView style={styles.container}>
@@ -161,29 +213,66 @@ const AppointmentDetailsScreen = ({ appointment, chatHistory = [], navigation })
 
         {/* Right Column: Conversation */}
         <View style={styles.rightCard}>
-          <View style={styles.conversationHeader}>
-            <Text style={styles.sectionTitle}>Conversation with Messaging</Text>
-            <View style={styles.headerControls}>
-              <TouchableOpacity 
-                style={styles.refreshButton}
-                onPress={refreshChatHistory}
-                disabled={isLoading}
-              >
-                <MaterialIcons 
-                  name="refresh" 
-                  size={16} 
-                  color={isLoading ? Colors.textSecondary : Colors.text} 
-                />
-              </TouchableOpacity>
-              <View style={styles.agentToggle}>
-                <Text style={styles.toggleLabel}>AI Agent Active</Text>
-                <Switch 
-                  value={isAIAgentActive} 
-                  onValueChange={setIsAIAgentActive}
-                  trackColor={{ false: '#767577', true: '#0277BD' }}
-                  thumbColor={isAIAgentActive ? '#ffffff' : '#f4f3f4'}
-                />
+          {/* Chat Header */}
+          <View style={styles.chatHeader}>
+            <Text style={styles.chatHeaderTitle}>Conversation with Messaging</Text>
+            
+            {/* AI Agent Section */}
+            <View style={styles.aiAgentSection}>
+              <View style={styles.aiAgentHeader}>
+                <View style={styles.aiAgentTitleRow}>
+                  <MaterialIcons name="smart-toy" size={20} color="#0277BD" />
+                  <Text style={styles.aiAgentLabel}>AI Agent Chatbot</Text>
+                </View>
+                <TouchableOpacity 
+                  style={styles.refreshButton}
+                  onPress={refreshChatHistory}
+                  disabled={isLoading}
+                >
+                  <MaterialIcons 
+                    name="refresh" 
+                    size={16} 
+                    color={isLoading ? Colors.textSecondary : Colors.text} 
+                  />
+                </TouchableOpacity>
               </View>
+              <View style={styles.toggleButtonsContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.toggleButton,
+                    styles.toggleButtonLeft,
+                    isAIAgentActive && styles.toggleButtonActive
+                  ]}
+                  onPress={() => handleBotStatusToggle(true)}
+                  disabled={isUpdatingBotStatus}
+                >
+                  <Text style={[
+                    styles.toggleButtonText,
+                    isAIAgentActive && styles.toggleButtonTextActive
+                  ]}>
+                    Enable AI
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.toggleButton,
+                    styles.toggleButtonRight,
+                    !isAIAgentActive && styles.toggleButtonActive
+                  ]}
+                  onPress={() => handleBotStatusToggle(false)}
+                  disabled={isUpdatingBotStatus}
+                >
+                  <Text style={[
+                    styles.toggleButtonText,
+                    !isAIAgentActive && styles.toggleButtonTextActive
+                  ]}>
+                    Disable AI
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              {isUpdatingBotStatus && (
+                <ActivityIndicator size="small" color={Colors.textSecondary} style={styles.toggleLoading} />
+              )}
             </View>
           </View>
 
@@ -200,12 +289,12 @@ const AppointmentDetailsScreen = ({ appointment, chatHistory = [], navigation })
                   <View style={styles.loadingContainer}>
                     <Text style={styles.loadingText}>Loading chat history...</Text>
                   </View>
-                ) : chatMessages.length === 0 ? (
+                ) : sortedMessages.length === 0 ? (
                   <View style={styles.emptyChatContainer}>
                     <Text style={styles.emptyChatText}>No messages yet. Start a conversation!</Text>
                   </View>
                 ) : (
-                  chatMessages.map(renderChatMessage)
+                  sortedMessages.map(renderChatMessage)
                 )}
               </ScrollView>
             </View>
@@ -213,6 +302,44 @@ const AppointmentDetailsScreen = ({ appointment, chatHistory = [], navigation })
           </View>
         </View>
       </View>
+
+      {/* Confirmation Modal */}
+      <Modal
+        visible={showConfirmModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleCancelDisable}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Are you sure?</Text>
+              <Text style={styles.modalMessage}>
+                {pendingBotStatus 
+                  ? "Enabling the AI Agent will start automated replies for this appointment."
+                  : "Disabling the AI Agent will stop automated replies for this appointment."
+                }
+              </Text>
+            </View>
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={handleCancelDisable}
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonConfirm]}
+                onPress={handleConfirmDisable}
+              >
+                <Text style={[styles.modalButtonText, styles.modalButtonTextConfirm]}>
+                  {pendingBotStatus ? "Enable AI" : "Disable AI"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -260,7 +387,7 @@ const styles = StyleSheet.create({
     flex: 1.5,
     backgroundColor: '#0F1A20',
     borderRadius: 14,
-    padding: 24,
+    padding: 0,
     justifyContent: 'space-between',
   },
   patientHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 18, justifyContent: 'space-between' },
@@ -304,9 +431,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   quickBtnText: { color: 'white', fontWeight: '600', fontSize: 14 },
-  conversationHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  conversationContent: { flexDirection: 'column' },
-  headerControls: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  chatHeader: {
+    padding: 24,
+    flexShrink: 0,
+  },
+  chatHeaderTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.text,
+    marginBottom: 16,
+  },
+  conversationContent: { 
+    flexDirection: 'column',
+    flex: 1,
+  },
   refreshButton: {
     padding: 8,
     borderRadius: 6,
@@ -314,16 +452,76 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  agentToggle: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  toggleLabel: { color: Colors.textSecondary, fontSize: 14 },
+  aiAgentSection: { 
+    flexDirection: 'column', 
+    gap: 12,
+    marginBottom: 16,
+  },
+  aiAgentHeader: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  aiAgentTitleRow: {
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 8,
+  },
+  aiAgentLabel: { 
+    color: Colors.textSecondary, 
+    fontSize: 14, 
+    fontWeight: '500' 
+  },
+  toggleButtonsContainer: { 
+    flexDirection: 'row', 
+    backgroundColor: '#1e2c35', 
+    borderRadius: 8, 
+    padding: 4,
+    gap: 0
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toggleButtonLeft: {
+    borderTopLeftRadius: 6,
+    borderBottomLeftRadius: 6,
+  },
+  toggleButtonRight: {
+    borderTopRightRadius: 6,
+    borderBottomRightRadius: 6,
+  },
+  toggleButtonActive: {
+    backgroundColor: '#0F1A20',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  toggleButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.textSecondary,
+  },
+  toggleButtonTextActive: {
+    color: Colors.text,
+  },
+  toggleLoading: { marginTop: 8, alignSelf: 'center' },
   chatSection: {
-    height: 450,
+    height: 500,
+    paddingHorizontal: 24,
   },
   chatScrollView: {
     flex: 1,
   },
   chatContainer: { 
-    flexGrow: 1,
+    paddingVertical: 16,
     gap: 16, 
     justifyContent: 'flex-start',
   },
@@ -369,6 +567,67 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 14,
     textAlign: 'center',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalContainer: {
+    backgroundColor: '#0F1A20',
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 320,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#1e2c35',
+  },
+  modalContent: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.text,
+    marginBottom: 8,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: '#1e2c35',
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalButtonConfirm: {
+    borderLeftWidth: 1,
+    borderLeftColor: '#1e2c35',
+  },
+  modalButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.textSecondary,
+  },
+  modalButtonTextConfirm: {
+    color: '#ef4444',
   },
 });
 
