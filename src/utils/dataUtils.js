@@ -169,3 +169,35 @@ export const processAppointmentsForCards = (appointments = [], limit = HOME_SCRE
     };
   });
 };
+
+/**
+ * Gets the top service category from service distribution
+ * @param {Object} serviceCategoryDistribution - Service category distribution data
+ * @returns {string} Top service category name or fallback
+ */
+export const getTopService = (serviceCategoryDistribution = {}) => {
+  const entries = Object.entries(serviceCategoryDistribution);
+  
+  if (entries.length === 0) {
+    return 'No Services';
+  }
+  
+  const sortedEntries = entries.sort(([,a], [,b]) => b - a);
+  return sortedEntries[0][0] || 'No Services';
+};
+
+/**
+ * Gets the top platform from platform distribution
+ * @param {Object} platformDistribution - Platform distribution data
+ * @returns {string} Top platform name or fallback
+ */
+export const getTopPlatform = (platformDistribution = {}) => {
+  const entries = Object.entries(platformDistribution);
+  
+  if (entries.length === 0) {
+    return 'No Platforms';
+  }
+  
+  const sortedEntries = entries.sort(([,a], [,b]) => b - a);
+  return sortedEntries[0][0] || 'No Platforms';
+};

@@ -8,11 +8,12 @@ import Section from '../components/Section';
 import StatCard from '../components/StatCard';
 import DemographicsSection from '../components/sections/DemographicsSection';
 import PlatformSection from '../components/sections/PlatformSection';
-import ServicesSection from '../components/sections/ServicesSection';
+import ServiceCategorySection from '../components/sections/ServiceCategorySection';
 import AppointmentsSection from '../components/sections/AppointmentsSection';
 
 // Hooks and Utils
 import { useHomeScreen } from '../hooks/useHomeScreen';
+import { getTopService, getTopPlatform } from '../utils/dataUtils';
 
 // Constants and Styles
 import { Layout } from '../constants/Layout';
@@ -67,12 +68,12 @@ const HomeScreen = ({ navigation }) => {
         />
         <StatCard 
           title="Top Service" 
-          value={viewState.topService || 'Flu Vaccine'} 
+          value={getTopService(viewState.serviceCategoryDistribution)} 
           style={homeScreenStyles.flexItem} 
         />
         <StatCard 
           title="Top Platform" 
-          value={viewState.topPlatform || 'Facebook'} 
+          value={getTopPlatform(viewState.platformDistribution)} 
           style={homeScreenStyles.flexItem} 
         />
       </View>
@@ -91,7 +92,7 @@ const HomeScreen = ({ navigation }) => {
         </Section>
 
         <Section title="Top Requested Services" style={[homeScreenStyles.flexItem, homeScreenStyles.cardItem]}>
-          <ServicesSection serviceCategoryDistribution={viewState.serviceCategoryDistribution} />
+          <ServiceCategorySection serviceCategoryDistribution={viewState.serviceCategoryDistribution} />
         </Section>
       </View>
 

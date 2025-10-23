@@ -3,19 +3,20 @@ import { View, Text } from 'react-native';
 import CircularSegmentedChart from '../CircularSegmentedChart';
 import { Colors } from '../../constants/Colors';
 import { Layout } from '../../constants/Layout';
+import { processPlatformDistribution } from '../../utils/dataUtils';
 
 const PlatformSection = ({ platformDistribution }) => {
+  const processedData = processPlatformDistribution(platformDistribution);
+  
   const platformData = {
-    hasData: true,
-    data: [450, 350, 200, 120],
-    labels: ['Facebook', 'Instagram', 'Whatsapp', 'Telegram'],
-    colors: ['#4A90E2', '#5BA0F2', '#6BB0FF', '#9CC9FF'],
-    items: [
-      { name: 'Facebook', value: 450 },
-      { name: 'Instagram', value: 350 },
-      { name: 'Whatsapp', value: 200 },
-      { name: 'Telegram', value: 120 },
-    ],
+    hasData: processedData.hasData,
+    data: processedData.data || [],
+    labels: processedData.labels || [],
+    colors: processedData.colors || [],
+    items: processedData.labels?.map((label, index) => ({
+      name: label,
+      value: processedData.data[index] || 0
+    })) || [],
   };
 
   if (!platformData.hasData) {
@@ -87,12 +88,14 @@ const styles = {
     marginTop: 20,
     width: '100%',
     flexDirection: 'row',
-    justifyContent: 'space-around',
     flexWrap: 'wrap',
-    rowGap: 16,
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
   },
   legendBlock: {
+    width: '30%',
     alignItems: 'center',
+    marginBottom: 16,
   },
   legendInner: {
     flexDirection: 'row',

@@ -143,9 +143,9 @@ export class HomeViewModel {
 
         // Platform buckets are calculated separately below
 
-        // Treat 'scheduled' status as a successful scheduling event
+        // Treat 'confirmed' status as a successful scheduling event
         const status = (row.status || '').toString().trim().toLowerCase();
-        if (status === 'scheduled') successfulCount += 1;
+        if (status === 'confirmed') successfulCount += 1;
       }
 
       // Calculate platform distribution from patients table

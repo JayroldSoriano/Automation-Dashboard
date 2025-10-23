@@ -639,7 +639,7 @@ const styles = {
   modalContent: {
     backgroundColor: '#0F1A20',
     borderRadius: 12,
-    width: '90%',
+    width: '40%',
     maxHeight: '80%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },

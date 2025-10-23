@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     marginBottom: Layout.spacing.sm,
   },
   barContainer: {
-    marginBottom: Layout.spacing.sm,
+    marginBottom: 40
   },
   labelsContainer: {
     flexDirection: 'row',
