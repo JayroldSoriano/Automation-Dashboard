@@ -16,35 +16,136 @@ const AppointmentScreen = ({ navigation }) => {
   const [dateRangeFilter, setDateRangeFilter] = useState('all');
   const [statusMenuVisible, setStatusMenuVisible] = useState(false);
   const [dateRangeMenuVisible, setDateRangeMenuVisible] = useState(false);
+  const [allAppointments, setAllAppointments] = useState([]);
+
+  // Filter appointments based on search query, status, and date range
+  const filterAppointments = (appointments) => {
+    let filtered = appointments;
+
+    // Search filter
+    if (searchQuery.trim()) {
+      filtered = filtered.filter(appointment => 
+        appointment.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        appointment.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        appointment.phone?.includes(searchQuery)
+      );
+    }
+
+    // Status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(appointment => 
+        appointment.status?.toLowerCase() === statusFilter.toLowerCase()
+      );
+    }
+
+    // Date range filter
+    if (dateRangeFilter !== 'all') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      filtered = filtered.filter(appointment => {
+        const appointmentDate = new Date(appointment.scheduled_date);
+        appointmentDate.setHours(0, 0, 0, 0);
+        
+        switch (dateRangeFilter) {
+          case 'today':
+            return appointmentDate.getTime() === today.getTime();
+          case 'this_week':
+            const weekStart = new Date(today);
+            weekStart.setDate(today.getDate() - today.getDay());
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 6);
+            return appointmentDate >= weekStart && appointmentDate <= weekEnd;
+          case 'this_month':
+            return appointmentDate.getMonth() === today.getMonth() && 
+                   appointmentDate.getFullYear() === today.getFullYear();
+          default:
+            return true;
+        }
+      });
+    }
+
+    return filtered;
+  };
+
+  // Sort appointments by nearest date to today, past dates at bottom
+  const sortAppointmentsByNearestDate = (appointments) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day
+
+    return appointments.sort((a, b) => {
+      const dateA = new Date(a.scheduled_date);
+      const dateB = new Date(b.scheduled_date);
+      
+      // Check if dates are in the past
+      const isPastA = dateA < today;
+      const isPastB = dateB < today;
+      
+      // If one is past and one is future, future comes first
+      if (isPastA && !isPastB) return 1; // A is past, B is future -> B comes first
+      if (!isPastA && isPastB) return -1; // A is future, B is past -> A comes first
+      
+      // If both are past dates, sort by most recent past date first
+      if (isPastA && isPastB) {
+        const diffA = today - dateA; // Days since dateA
+        const diffB = today - dateB; // Days since dateB
+        return diffA - diffB; // Most recent past date first
+      }
+      
+      // If both are future dates, sort by nearest to today
+      if (!isPastA && !isPastB) {
+        const diffA = dateA - today; // Days until dateA
+        const diffB = dateB - today; // Days until dateB
+        return diffA - diffB; // Nearest future date first
+      }
+      
+      // If dates are the same, sort by time
+      const timeA = a.scheduled_time || '00:00';
+      const timeB = b.scheduled_time || '00:00';
+      return timeA.localeCompare(timeB);
+    });
+  };
+
+  const fetchAppointments = async () => {
+    setLoading(true);
+    
+    try {
+      // Use the same pattern as HomeViewModel.js - fetch from appointment_details view
+      const selectColumns = 
+        'appointment_id, patient_id, sender_id, name, email, phone, gender, age, profilepicture, service_name, service_category, service_price, status, scheduled_date, scheduled_time, appointment_created_at';
+
+      const { data, error } = await supabase
+        .from('appointment_details')
+        .select(selectColumns)
+        .order('scheduled_date', { ascending: true })
+        .order('scheduled_time', { ascending: true });
+
+      if (error) throw error;
+      
+      // Sort appointments by nearest date to today
+      const sortedAppointments = sortAppointmentsByNearestDate(data || []);
+      setAllAppointments(sortedAppointments);
+      
+      // Apply filters to the sorted appointments
+      const filteredAppointments = filterAppointments(sortedAppointments);
+      setAppointments(filteredAppointments);
+    } catch (err) {
+      console.error('Error fetching appointments:', err);
+      setAppointments([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchAppointments = async () => {
-      setLoading(true);
-      
-      try {
-        // Use the same pattern as HomeViewModel.js - fetch from appointment_details view
-        const selectColumns = 
-          'appointment_id, patient_id, sender_id, name, email, phone, gender, age, profilepicture, service_name, service_category, service_price, status, scheduled_date, scheduled_time, appointment_created_at';
-
-        const { data, error } = await supabase
-          .from('appointment_details')
-          .select(selectColumns)
-          .order('scheduled_date', { ascending: false })
-          .order('scheduled_time', { ascending: false });
-
-        if (error) throw error;
-        
-        setAppointments(data || []);
-      } catch (err) {
-        console.error('Error fetching appointments:', err);
-        setAppointments([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchAppointments();
   }, []);
+
+  // Apply filters whenever search query, status filter, or date range filter changes
+  useEffect(() => {
+    const filteredAppointments = filterAppointments(allAppointments);
+    setAppointments(filteredAppointments);
+  }, [searchQuery, statusFilter, dateRangeFilter, allAppointments]);
 
   const handleRowPress = async (appointment) => {
     if (navigation) {
@@ -168,6 +269,7 @@ const AppointmentScreen = ({ navigation }) => {
       <AppointmentsSection 
         appointments={appointments} 
         onRowPress={handleRowPress}
+        onAppointmentUpdate={fetchAppointments}
       />
     </View>
   );
