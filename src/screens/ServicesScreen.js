@@ -16,46 +16,46 @@ const ServicesScreen = ({ navigation }) => {
   const [categoryMenuVisible, setCategoryMenuVisible] = useState(false);
   const [priceRangeMenuVisible, setPriceRangeMenuVisible] = useState(false);
 
-  useEffect(() => {
-    const fetchServices = async () => {
-      setLoading(true);
+  const fetchServices = async () => {
+    setLoading(true);
+    
+    try {
+      // Fetch services from services table using the schema from supabase.js
+      const { data, error } = await supabase
+        .from('services')
+        .select('service_id, service_name, service_description, service_category, service_price, currency, duration_min, active, updated_at')
+        .eq('active', true)
+        .order('service_name', { ascending: true });
+
+      if (error) throw error;
       
-      try {
-        // Fetch services from services table using the schema from supabase.js
-        const { data, error } = await supabase
-          .from('services')
-          .select('service_id, service_name, service_description, service_category, service_price, currency, duration_min, active, updated_at')
-          .eq('active', true)
-          .order('service_name', { ascending: true });
+      // Get appointment counts for each service
+      const servicesWithCounts = await Promise.all(
+        data.map(async (service) => {
+          const { count: appointmentCount } = await supabase
+            .from('appointments')
+            .select('*', { count: 'exact', head: true })
+            .eq('service_name', service.service_name);
 
-        if (error) throw error;
-        
-        // Get appointment counts for each service
-        const servicesWithCounts = await Promise.all(
-          data.map(async (service) => {
-            const { count: appointmentCount } = await supabase
-              .from('appointments')
-              .select('*', { count: 'exact', head: true })
-              .eq('service_name', service.service_name);
+          return {
+            ...service,
+            appointment_count: appointmentCount || 0
+          };
+        })
+      );
 
-            return {
-              ...service,
-              appointment_count: appointmentCount || 0
-            };
-          })
-        );
+      console.log('Fetched services count:', servicesWithCounts.length);
+      console.log('Sample service data:', servicesWithCounts[0]);
+      setServices(servicesWithCounts);
+    } catch (err) {
+      console.error('Error fetching services:', err);
+      setServices([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        console.log('Fetched services count:', servicesWithCounts.length);
-        console.log('Sample service data:', servicesWithCounts[0]);
-        setServices(servicesWithCounts);
-      } catch (err) {
-        console.error('Error fetching services:', err);
-        setServices([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
+  useEffect(() => {
     fetchServices();
   }, []);
 
@@ -94,15 +94,6 @@ const ServicesScreen = ({ navigation }) => {
     }
   };
 
-  const handleEdit = (service) => {
-    console.log('Edit service:', service);
-    // TODO: Implement edit functionality
-  };
-
-  const handleDelete = (service) => {
-    console.log('Delete service:', service);
-    // TODO: Implement delete functionality
-  };
 
   const handleAddNew = () => {
     if (navigation) {
@@ -222,8 +213,7 @@ const ServicesScreen = ({ navigation }) => {
         <ServicesSection 
           services={filteredServices} 
           onRowPress={handleRowPress}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
+          onServiceUpdate={fetchServices}
         />
       </View>
     </View>

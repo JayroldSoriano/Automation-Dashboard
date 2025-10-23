@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Animated } from 'react-native';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Button } from 'react-native-paper';
 import { supabase } from '../config/supabase';
 import { Colors } from '../constants/Colors';
@@ -12,11 +12,44 @@ const AddServiceScreen = ({ navigation }) => {
     service_category: '',
     service_description: '',
     service_price: '',
-    currency: 'USD',
+    currency: 'PHP',
     duration_min: '',
     active: true,
   });
   const [loading, setLoading] = useState(false);
+
+  // Snackbar state
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarType, setSnackbarType] = useState('success');
+  const snackbarAnimation = new Animated.Value(0);
+
+  // Snackbar functions
+  const showSnackbar = (message, type = 'success') => {
+    setSnackbarMessage(message);
+    setSnackbarType(type);
+    setSnackbarVisible(true);
+    
+    Animated.timing(snackbarAnimation, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+
+    setTimeout(() => {
+      hideSnackbar();
+    }, 3000);
+  };
+
+  const hideSnackbar = () => {
+    Animated.timing(snackbarAnimation, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setSnackbarVisible(false);
+    });
+  };
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -57,6 +90,7 @@ const AddServiceScreen = ({ navigation }) => {
       const { data, error } = await supabase
         .from('services')
         .insert([{
+          service_id: `SVC-${Date.now()}`, // Generate unique service ID
           service_name: formData.service_name.trim(),
           service_category: formData.service_category.trim(),
           service_description: formData.service_description.trim(),
@@ -64,26 +98,32 @@ const AddServiceScreen = ({ navigation }) => {
           currency: formData.currency,
           duration_min: parseInt(formData.duration_min),
           active: formData.active,
-          created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }])
         .select();
 
       if (error) throw error;
 
-      Alert.alert(
-        'Success',
-        'Service added successfully!',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack()
-          }
-        ]
-      );
+      showSnackbar('Service added successfully!', 'success');
+      
+      // Reset form
+      setFormData({
+        service_name: '',
+        service_category: '',
+        service_description: '',
+        service_price: '',
+        currency: 'PHP',
+        duration_min: '',
+        active: true,
+      });
+      
+      // Navigate back after a short delay
+      setTimeout(() => {
+        navigation.goBack();
+      }, 1500);
     } catch (err) {
       console.error('Error adding service:', err);
-      Alert.alert('Error', 'Failed to add service. Please try again.');
+      showSnackbar('Failed to add service. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -173,7 +213,7 @@ const AddServiceScreen = ({ navigation }) => {
             <Text style={styles.fieldLabel}>Currency</Text>
             <TextInput
               style={styles.textInput}
-              placeholder="USD"
+              placeholder="PHP"
               placeholderTextColor={Colors.textSecondary}
               value={formData.currency}
               onChangeText={(value) => handleInputChange('currency', value)}
@@ -229,6 +269,36 @@ const AddServiceScreen = ({ navigation }) => {
         </View>
         </View>
       </View>
+
+      {/* Snackbar */}
+      {snackbarVisible && (
+        <Animated.View 
+          style={[
+            styles.snackbar,
+            {
+              backgroundColor: snackbarType === 'success' ? '#1B5E20' : '#B71C1C',
+              transform: [{
+                translateY: snackbarAnimation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [100, 0],
+                })
+              }]
+            }
+          ]}
+        >
+          <View style={styles.snackbarContent}>
+            <MaterialIcons 
+              name={snackbarType === 'success' ? 'check-circle' : 'error'} 
+              size={20} 
+              color="white" 
+            />
+            <Text style={styles.snackbarText}>{snackbarMessage}</Text>
+            <TouchableOpacity onPress={hideSnackbar} style={styles.snackbarClose}>
+              <MaterialIcons name="close" size={20} color="white" />
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      )}
     </ScrollView>
   );
 };
@@ -288,6 +358,8 @@ const styles = StyleSheet.create({
   },
   formField: {
     flex: 1,
+    position: 'relative',
+    zIndex: 1,
   },
   fullWidthField: {
     flex: 1,
@@ -376,6 +448,35 @@ const styles = StyleSheet.create({
   },
   toggleThumbActive: {
     alignSelf: 'flex-end',
+  },
+  // Snackbar styles
+  snackbar: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  snackbarContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  snackbarText: {
+    flex: 1,
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  snackbarClose: {
+    padding: 4,
   },
 });
 
