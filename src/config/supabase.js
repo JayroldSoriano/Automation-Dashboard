@@ -71,6 +71,14 @@ export const SUPABASE_CONFIG = {
       "platform": "platform",
       "role": "role",
       "created_at": "created_at"
+    },
+    "notifications": {
+      "id": "id",
+      "patient_id": "patient_id",
+      "appointment_id": "appointment_id",
+      "message": "message",
+      "created_at": "created_at",
+      "is_read": "is_read"
     }
     
 };

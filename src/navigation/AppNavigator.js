@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable, TouchableOpacity } from 'react-native';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Pressable, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from '../screens/HomeScreen';
 import SettingsScreen from '../screens/SettingsScreen';
@@ -11,11 +11,102 @@ import NotificationScreen from '../screens/NotificationScreen';
 import ReportsScreen from '../screens/ReportsScreen';
 import { Colors } from '../constants/Colors';
 import { useResponsive } from '../utils/useResponsive';
+import { supabase } from '../config/supabase';
 
 const AppNavigator = () => {
   const { isWeb, breakpoint, scale } = useResponsive();
   const [activeRoute, setActiveRoute] = useState('Dashboard');
   const [routeProps, setRouteProps] = useState({});
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const snackbarAnimation = useRef(new Animated.Value(0)).current;
+
+  // Snackbar functions
+  const showSnackbar = (message) => {
+    setSnackbarMessage(message);
+    setSnackbarVisible(true);
+    
+    Animated.timing(snackbarAnimation, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+
+    setTimeout(() => {
+      hideSnackbar();
+    }, 4000);
+  };
+
+  const hideSnackbar = () => {
+    Animated.timing(snackbarAnimation, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setSnackbarVisible(false);
+    });
+  };
+
+  // Fetch unread notification count
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      try {
+        const { count, error } = await supabase
+          .from('notifications')
+          .select('*', { count: 'exact', head: true })
+          .eq('is_read', false);
+
+        if (error) throw error;
+        
+        setUnreadCount(count || 0);
+      } catch (err) {
+        console.error('Error fetching unread notifications:', err);
+      }
+    };
+
+    // Fetch initial count
+    fetchUnreadCount();
+
+    // Set up real-time subscription
+    const subscription = supabase
+      .channel('notifications_changes')
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'notifications' },
+        (payload) => {
+          // Show snackbar for new notifications
+          const newNotification = payload.new;
+          const message = newNotification.message || 'New notification received';
+          showSnackbar(message);
+          
+          // Update unread count
+          fetchUnreadCount();
+        }
+      )
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'notifications' },
+        () => {
+          // Update unread count when notifications are marked as read
+          fetchUnreadCount();
+        }
+      )
+      .subscribe();
+
+    // Fetch count periodically (every 30 seconds)
+    const interval = setInterval(fetchUnreadCount, 30000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Reset unread count when navigating to Notifications screen
+  useEffect(() => {
+    if (activeRoute === 'Notifications') {
+      setUnreadCount(0);
+    }
+  }, [activeRoute]);
 
   const routes = useMemo(
     () => [
@@ -89,7 +180,16 @@ const AppNavigator = () => {
             onPress={() => setActiveRoute('Notifications')}
             activeOpacity={0.7}
           >
-            <Ionicons name="notifications" size={24} color={Colors.textSecondary} />
+            <View style={styles.notificationIconContainer}>
+              <Ionicons name="notifications" size={24} color={Colors.textSecondary} />
+              {unreadCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
           <View style={[styles.avatar, { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 }]} />
         </View>
@@ -108,6 +208,35 @@ const AppNavigator = () => {
           return <Component key={route.key} navigation={{ navigate }} {...props} />;
         })}
       </View>
+
+      {/* Snackbar for new notifications */}
+      {snackbarVisible && (
+        <Animated.View 
+          style={[
+            styles.snackbar,
+            {
+              transform: [{
+                translateY: snackbarAnimation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [100, 0],
+                })
+              }]
+            }
+          ]}
+        >
+          <View style={styles.snackbarContent}>
+            <Ionicons 
+              name="notifications" 
+              size={20} 
+              color="white" 
+            />
+            <Text style={styles.snackbarText}>{snackbarMessage}</Text>
+            <TouchableOpacity onPress={hideSnackbar} style={styles.snackbarClose}>
+              <Ionicons name="close" size={20} color="white" />
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      )}
     </View>
   );
 };
@@ -159,6 +288,29 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: 'transparent',
   },
+  notificationIconContainer: {
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: Colors.surface,
+  },
+  notificationBadgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
   avatar: {
     backgroundColor: Colors.secondary,
   },
@@ -168,5 +320,34 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
+  },
+  snackbar: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    backgroundColor: '#1e3a5f',
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  snackbarContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  snackbarText: {
+    flex: 1,
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  snackbarClose: {
+    padding: 4,
   },
 });

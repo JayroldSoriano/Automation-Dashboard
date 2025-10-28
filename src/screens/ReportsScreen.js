@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../config/supabase';
 import { Colors } from '../constants/Colors';
@@ -10,6 +10,7 @@ import CircularSegmentedChart from '../components/CircularSegmentedChart';
 import VerticalBarChart from '../components/VerticalBarChart';
 import HorizontalSegmentedBar from '../components/HorizontalSegmentedBar';
 import StatCard from '../components/StatCard';
+import { chatService } from '../services/chatService';
 
 const ReportsScreen = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState('patient');
@@ -33,7 +34,8 @@ const ReportsScreen = ({ navigation }) => {
         console.log('Fetched patients count:', patientsData.length);
         setPatients(patientsData);
 
-        // Fetch chatbot conversations (mock data for now since we don't have a conversations table)
+        // Fetch chatbot conversations from chatService
+        const conversationsData = await chatService.getConversations(50);
         const mockConversations = [
           {
             session_id: 'SESS-001',
@@ -142,8 +144,13 @@ const ReportsScreen = ({ navigation }) => {
           }
         ];
 
-        console.log('Fetched conversations count:', mockConversations.length);
-        setConversations(mockConversations);
+        console.log('Fetched conversations count:', conversationsData.length);
+        // Use real data if available, otherwise fallback to mock data
+        if (conversationsData && conversationsData.length > 0) {
+          setConversations(conversationsData);
+        } else {
+          setConversations(mockConversations);
+        }
 
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -166,9 +173,31 @@ const ReportsScreen = ({ navigation }) => {
     // TODO: Navigate to patient details or implement patient actions
   };
 
-  const handleConversationPress = (conversation) => {
+  const handleConversationPress = async (conversation) => {
     console.log('Conversation pressed:', conversation);
-    // TODO: Navigate to conversation details or implement conversation actions
+    
+    // If conversation has a sender_id, fetch appointment details and navigate
+    if (conversation.sender_id && navigation) {
+      try {
+        // Try to find an appointment linked to this sender_id
+        const { data, error } = await supabase
+          .from('appointment_details')
+          .select('*')
+          .eq('sender_id', conversation.sender_id)
+          .order('appointment_created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (error) throw error;
+
+        // Navigate to AppointmentDetailsScreen with the appointment data
+        navigation.navigate('AppointmentDetailsScreen', { appointment: data });
+      } catch (err) {
+        console.error('Error fetching appointment details:', err);
+        // If no appointment found, just show an alert
+        Alert.alert('Information', 'No appointment found for this conversation.');
+      }
+    }
   };
 
   // Process analytics data from patients

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator, Modal } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
@@ -17,12 +17,7 @@ const AppointmentDetailsScreen = ({ appointment, chatHistory = [], navigation })
   const [pendingBotStatus, setPendingBotStatus] = useState(null);
   const scrollViewRef = useRef(null);
 
-  // Update chat messages when chatHistory prop changes
-  useEffect(() => {
-    setChatMessages(chatHistory);
-  }, [chatHistory]);
-
-  const refreshChatHistory = async () => {
+  const refreshChatHistory = useCallback(async () => {
     if (!appointment?.sender_id) return;
     
     try {
@@ -35,7 +30,14 @@ const AppointmentDetailsScreen = ({ appointment, chatHistory = [], navigation })
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [appointment?.sender_id]);
+
+  // Fetch chat history on mount
+  useEffect(() => {
+    if (appointment?.sender_id && chatHistory.length === 0) {
+      refreshChatHistory();
+    }
+  }, [appointment?.sender_id, chatHistory.length, refreshChatHistory]);
 
   const handleBotStatusToggle = (newValue) => {
     if (!appointment?.sender_id) {

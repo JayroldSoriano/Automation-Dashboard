@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 
-const NOTIFICATION_TABLE_COLUMNS = ['TITLE', 'MESSAGE', 'TYPE', 'STATUS', 'PRIORITY', 'DATE', 'ACTIONS'];
+const NOTIFICATION_TABLE_COLUMNS = ['CATEGORY', 'MESSAGE', 'TYPE', 'STATUS', 'PRIORITY', 'DATE', 'ACTIONS'];
 
 const NotificationSection = ({ notifications = [], onRowPress, onMarkAsRead, onDelete }) => {
   console.log('NotificationSection received notifications:', notifications?.length || 0);
@@ -39,20 +39,32 @@ const NotificationSection = ({ notifications = [], onRowPress, onMarkAsRead, onD
 
   const renderTableData = () => {
     return notifications.map((notification, index) => {
-      const notificationKey = `${notification.notification_id || notification.title}-${index}`;
+      const notificationKey = `${notification.id || index}`;
+      
+      // Determine type based on patient_id and appointment_id
+      let notificationType = 'General';
+      if (notification.appointment_id) {
+        notificationType = 'Appointment';
+      } else if (notification.patient_id) {
+        notificationType = 'Patient';
+      }
+      
+      // Determine status based on is_read
+      const status = notification.is_read ? 'read' : 'unread';
+      const statusColor = getStatusColor(status);
       
       return {
         key: notificationKey,
         data: [
-          <Text style={styles.cellPrimary}>{notification.title}</Text>, // Title
+          <Text style={styles.cellPrimary}>{notificationType}</Text>, // Type as Title
           <Text style={styles.cellDescription} numberOfLines={2}>{notification.message || '—'}</Text>, // Message
-          <Text style={styles.cellSecondary}>{notification.notification_type}</Text>, // Type
-          <Text style={[styles.cellStatus, { color: getStatusColor(notification.status) }]}>
-            {notification.status?.charAt(0).toUpperCase() + notification.status?.slice(1) || '—'}
+          <Text style={styles.cellSecondary}>{notificationType}</Text>, // Type
+          <Text style={[styles.cellStatus, { color: statusColor }]}>
+            {status.charAt(0).toUpperCase() + status.slice(1)}
           </Text>, // Status
-          <Text style={[styles.cellPriority, { color: getPriorityColor(notification.priority) }]}>
-            {notification.priority?.charAt(0).toUpperCase() + notification.priority?.slice(1) || '—'}
-          </Text>, // Priority
+          <Text style={[styles.cellPriority, { color: '#10B981' }]}>
+            {notification.priority?.charAt(0).toUpperCase() + notification.priority?.slice(1) || 'Normal'}
+          </Text>, // Priority (defaulting to Normal)
           <Text style={styles.cellDate}>{formatDate(notification.created_at)}</Text>, // Date
           <View style={styles.actionsContainer}>
             <TouchableOpacity 
