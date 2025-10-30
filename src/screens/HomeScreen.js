@@ -14,6 +14,7 @@ import AppointmentsSection from '../components/sections/AppointmentsSection';
 // Hooks and Utils
 import { useHomeScreen } from '../hooks/useHomeScreen';
 import { getTopService, getTopPlatform } from '../utils/dataUtils';
+import { chatService } from '../services/chatService';
 
 // Constants and Styles
 import { Layout } from '../constants/Layout';
@@ -119,6 +120,15 @@ const HomeScreen = ({ navigation }) => {
           onMenuOpen={handleMenuOpen}
           onMenuClose={handleMenuClose}
           onMenuAction={handleMenuAction}
+          onRowPress={async (appointment) => {
+            if (!navigation) return;
+            try {
+              const chatHistory = await chatService.getChatHistory(appointment.sender_id);
+              navigation.navigate('AppointmentDetailsScreen', { appointment, chatHistory });
+            } catch (error) {
+              navigation.navigate('AppointmentDetailsScreen', { appointment, chatHistory: [] });
+            }
+          }}
         />
       </Section>
     </ScrollView>
