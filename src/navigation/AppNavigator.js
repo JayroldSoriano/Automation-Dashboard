@@ -22,6 +22,77 @@ const AppNavigator = () => {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const snackbarAnimation = useRef(new Animated.Value(0)).current;
 
+  // Route <-> Path mapping for web URLs
+  const routeToPath = useMemo(
+    () => ({
+      Dashboard: '/home/dashboard',
+      Appointment: '/appointments',
+      Services: '/services',
+      Notifications: '/notifications',
+      Reports: '/reports',
+      Settings: '/settings',
+      AddServiceScreen: '/services/add',
+      // AppointmentDetailsScreen handled as dynamic with optional id
+    }),
+    []
+  );
+
+  const pathMatchers = useMemo(
+    () => [
+      { key: 'Dashboard', match: (p) => p === '/home/dashboard' || p === '/' },
+      { key: 'Appointment', match: (p) => p === '/appointments' },
+      { key: 'Services', match: (p) => p === '/services' },
+      { key: 'AddServiceScreen', match: (p) => p === '/services/add' },
+      { key: 'Notifications', match: (p) => p === '/notifications' },
+      { key: 'Reports', match: (p) => p === '/reports' },
+      { key: 'Settings', match: (p) => p === '/settings' },
+      {
+        key: 'AppointmentDetailsScreen',
+        match: (p) => {
+          // matches /appointments/<id>
+          const m = p.match(/^\/appointments\/([^\/]+)$/);
+          return m ? { params: { id: decodeURIComponent(m[1]) } } : false;
+        },
+      },
+    ],
+    []
+  );
+
+  // On web, sync initial path and handle back/forward
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const applyPath = (pathname) => {
+      for (const matcher of pathMatchers) {
+        const result = typeof matcher.match === 'function' ? matcher.match(pathname) : false;
+        if (result || result === false) {
+          if (result) {
+            const matchedKey = matcher.key;
+            const extraProps = result.params ? result.params : {};
+            setActiveRoute(matchedKey);
+            setRouteProps((prev) => ({ ...prev, [matchedKey]: extraProps }));
+            return true;
+          }
+        } else if (matcher.match === pathname) {
+          setActiveRoute(matcher.key);
+          return true;
+        }
+      }
+      // Default fallback
+      setActiveRoute('Dashboard');
+      return false;
+    };
+
+    // Initialize from current path
+    applyPath(window.location.pathname);
+
+    const onPopState = (e) => {
+      applyPath(window.location.pathname);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [pathMatchers]);
+
   // Snackbar functions
   const showSnackbar = (message) => {
     setSnackbarMessage(message);
@@ -141,6 +212,24 @@ const AppNavigator = () => {
       ...prev,
       [routeName]: props,
     }));
+
+    // Sync web URL
+    if (typeof window !== 'undefined') {
+      let nextPath = routeToPath[routeName] || '/';
+      if (routeName === 'AppointmentDetailsScreen') {
+        // Try to use id from props if available, otherwise fallback
+        const id = props?.appointment?.id || props?.appointment?.appointment_id || props?.appointment?.sender_id || props?.id;
+        if (id) {
+          nextPath = `/appointments/${encodeURIComponent(id)}`;
+        } else {
+          nextPath = '/appointments';
+        }
+      }
+      const currentPath = window.location.pathname;
+      if (currentPath !== nextPath) {
+        window.history.pushState({ routeName, props }, '', nextPath);
+      }
+    }
   };
   
 
@@ -160,7 +249,7 @@ const AppNavigator = () => {
             {mainMenuItems.map((route) => {
               const isActive = activeRoute === route.key;
               return (
-                <Pressable key={route.key} onPress={() => setActiveRoute(route.key)} style={styles.linkItem}>
+                <Pressable key={route.key} onPress={() => navigate(route.key)} style={styles.linkItem}>
                   <Text
                     style={[
                       styles.linkLabel,
@@ -177,7 +266,7 @@ const AppNavigator = () => {
         <View style={styles.headerRight}>
           <TouchableOpacity 
             style={styles.notificationButton}
-            onPress={() => setActiveRoute('Notifications')}
+            onPress={() => navigate('Notifications')}
             activeOpacity={0.7}
           >
             <View style={styles.notificationIconContainer}>
@@ -351,3 +440,8 @@ const styles = StyleSheet.create({
     padding: 4,
   },
 });
+
+// Initialize web history sync once when module loads (no-op on native)
+if (typeof window !== 'undefined') {
+  // Basic SPA 404-safe popstate handling is managed inside the component via effects below
+}
