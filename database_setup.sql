@@ -1,6 +1,22 @@
 -- Database setup for Automation Dashboard
 -- Run these commands in your Supabase SQL editor
 
+-- Verify user password via RPC for Supabase client
+create or replace function public.verify_user_password(p_email text, p_password text)
+returns setof public.users
+language sql
+security definer
+stable
+as $$
+  select u.*
+  from public.users u
+  where u.email = p_email
+    and u.password = crypt(p_password, u.password)
+  limit 1;
+$$;
+
+grant execute on function public.verify_user_password(text, text) to anon, authenticated;
+
 -- 1. Create inquiries table
 CREATE TABLE IF NOT EXISTS inquiries (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,

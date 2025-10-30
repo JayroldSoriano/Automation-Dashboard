@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, Pressable, TouchableOpacity, Animated, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from '../screens/HomeScreen';
+import LoginScreen from '../screens/LoginScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import AppointmentScreen from '../screens/AppointmentScreen';
 import AppointmentDetailsScreen from '../screens/AppointmentDetailsScreen';
@@ -21,11 +22,14 @@ const AppNavigator = () => {
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const snackbarAnimation = useRef(new Animated.Value(0)).current;
+  const [currentUser, setCurrentUser] = useState(null);
+  const [logoutVisible, setLogoutVisible] = useState(false);
 
   // Route <-> Path mapping for web URLs
   const routeToPath = useMemo(
     () => ({
       Dashboard: '/home/dashboard',
+      Login: '/login',
       Appointment: '/appointments',
       Services: '/services',
       Notifications: '/notifications',
@@ -40,6 +44,7 @@ const AppNavigator = () => {
   const pathMatchers = useMemo(
     () => [
       { key: 'Dashboard', match: (p) => p === '/home/dashboard' || p === '/' },
+      { key: 'Login', match: (p) => p === '/login' },
       { key: 'Appointment', match: (p) => p === '/appointments' },
       { key: 'Services', match: (p) => p === '/services' },
       { key: 'AddServiceScreen', match: (p) => p === '/services/add' },
@@ -57,6 +62,20 @@ const AppNavigator = () => {
     ],
     []
   );
+
+  // Load persisted user (web) and sync initial route
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = window.localStorage.getItem('currentUser');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          console.log('[Auth] Loaded user from storage', { id: parsed?.id, email: parsed?.email });
+          setCurrentUser(parsed);
+        }
+      } catch {}
+    }
+  }, []);
 
   // On web, sync initial path and handle back/forward
   useEffect(() => {
@@ -181,6 +200,7 @@ const AppNavigator = () => {
 
   const routes = useMemo(
     () => [
+      { key: 'Login', component: LoginScreen },
       { key: 'Dashboard', component: HomeScreen },
       { key: 'Appointment', component: AppointmentScreen },
       { key: 'Services', component: ServicesScreen },
@@ -231,6 +251,38 @@ const AppNavigator = () => {
       }
     }
   };
+
+  // Auth guards
+  useEffect(() => {
+    if (!currentUser && activeRoute !== 'Login') {
+      console.log('[Auth] No current user, redirecting to Login');
+      setActiveRoute('Login');
+      if (typeof window !== 'undefined') window.history.replaceState({}, '', routeToPath['Login']);
+    }
+    if (currentUser && activeRoute === 'Login') {
+      console.log('[Auth] User present, redirecting to Dashboard');
+      setActiveRoute('Dashboard');
+      if (typeof window !== 'undefined') window.history.replaceState({}, '', routeToPath['Dashboard']);
+    }
+  }, [currentUser, activeRoute, routeToPath]);
+
+  const handleLogin = (user) => {
+    console.log('[Auth] handleLogin', { id: user?.id, email: user?.email });
+    setCurrentUser(user);
+    if (typeof window !== 'undefined') {
+      try { window.localStorage.setItem('currentUser', JSON.stringify(user)); } catch {}
+    }
+    navigate('Dashboard');
+  };
+
+  const handleLogout = () => {
+    console.log('[Auth] handleLogout');
+    setCurrentUser(null);
+    if (typeof window !== 'undefined') {
+      try { window.localStorage.removeItem('currentUser'); } catch {}
+    }
+    navigate('Login');
+  };
   
 
   const headerHeight = isWeb ? (breakpoint === 'xl' || breakpoint === 'lg' ? 80 : 64) : 56;
@@ -245,42 +297,52 @@ const AppNavigator = () => {
           <Text style={[styles.brandText, { fontSize: 16 * (isWeb ? scale : 1) }]}>Dental Analytics</Text>
         </View>
         <View style={styles.headerCenter}>
-          <View style={styles.linksRow}>
-            {mainMenuItems.map((route) => {
-              const isActive = activeRoute === route.key;
-              return (
-                <Pressable key={route.key} onPress={() => navigate(route.key)} style={styles.linkItem}>
-                  <Text
-                    style={[
-                      styles.linkLabel,
-                      { fontSize: 12 * (isWeb ? scale : 1), color: isActive ? Colors.primary : Colors.textSecondary },
-                    ]}
-                  >
-                    {route.key}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          {currentUser ? (
+            <View style={styles.linksRow}>
+              {mainMenuItems.map((route) => {
+                const isActive = activeRoute === route.key;
+                return (
+                  <Pressable key={route.key} onPress={() => navigate(route.key)} style={styles.linkItem}>
+                    <Text
+                      style={[
+                        styles.linkLabel,
+                        { fontSize: 12 * (isWeb ? scale : 1), color: isActive ? Colors.primary : Colors.textSecondary },
+                      ]}
+                    >
+                      {route.key}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={[styles.linkLabel, { color: Colors.textSecondary }]}>Please sign in</Text>
+          )}
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity 
-            style={styles.notificationButton}
-            onPress={() => navigate('Notifications')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.notificationIconContainer}>
-              <Ionicons name="notifications" size={24} color={Colors.textSecondary} />
-              {unreadCount > 0 && (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </Text>
+          {currentUser && (
+            <>
+              <TouchableOpacity 
+                style={styles.notificationButton}
+                onPress={() => navigate('Notifications')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.notificationIconContainer}>
+                  <Ionicons name="notifications" size={24} color={Colors.textSecondary} />
+                  {unreadCount > 0 && (
+                    <View style={styles.notificationBadge}>
+                      <Text style={styles.notificationBadgeText}>
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </Text>
+                    </View>
+                  )}
                 </View>
-              )}
-            </View>
-          </TouchableOpacity>
-          <View style={[styles.avatar, { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 }]} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setLogoutVisible(true)} style={[styles.avatar, { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2, alignItems: 'center', justifyContent: 'center' }]}>
+                <Ionicons name="log-out" size={18} color="#fff" />
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
     );
@@ -294,7 +356,8 @@ const AppNavigator = () => {
           if (route.key !== activeRoute) return null;
           const Component = route.component;
           const props = routeProps[route.key] || {};
-          return <Component key={route.key} navigation={{ navigate }} {...props} />;
+          const extra = route.key === 'Login' ? { onLogin: handleLogin } : {};
+          return <Component key={route.key} navigation={{ navigate }} {...props} {...extra} />;
         })}
       </View>
 
@@ -326,6 +389,35 @@ const AppNavigator = () => {
           </View>
         </Animated.View>
       )}
+
+      {/* Logout confirmation modal */}
+      <Modal
+        visible={logoutVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLogoutVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Sign out</Text>
+            <Text style={styles.modalMessage}>Are you sure you want to log out?</Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={[styles.modalButton, styles.modalCancel]} onPress={() => setLogoutVisible(false)}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalConfirm]}
+                onPress={() => {
+                  setLogoutVisible(false);
+                  handleLogout();
+                }}
+              >
+                <Text style={styles.modalConfirmText}>Log out</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -438,6 +530,56 @@ const styles = StyleSheet.create({
   },
   snackbarClose: {
     padding: 4,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 12,
+    padding: 16,
+  },
+  modalTitle: {
+    color: Colors.text,
+    fontWeight: '700',
+    fontSize: 18,
+    marginBottom: 8,
+  },
+  modalMessage: {
+    color: Colors.textSecondary,
+    marginBottom: 16,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  modalButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  modalCancel: {
+    backgroundColor: 'transparent',
+  },
+  modalCancelText: {
+    color: Colors.textSecondary,
+    fontWeight: '600',
+  },
+  modalConfirm: {
+    backgroundColor: Colors.primary,
+  },
+  modalConfirmText: {
+    color: 'white',
+    fontWeight: '700',
   },
 });
 
