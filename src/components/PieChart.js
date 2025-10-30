@@ -27,11 +27,16 @@ const PieChart = ({ data = [], size = 120, strokeWidth = 0, labels = [], legend 
   const cy = radius;
   const total = data.reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0) || 1;
 
+  // Check if there's only one non-zero data point
+  const nonZeroData = data.filter(value => value > 0);
+  const hasOnlyOneDataPoint = nonZeroData.length === 1;
+
   let startAngle = 0;
   const palette = Array.isArray(colors) && colors.length > 0 ? colors : defaultColors;
   const slices = data.map((value, index) => {
     const pct = (value / total) * 100;
-    const sweep = (pct / 100) * 360;
+    // If there's only one data point, make it a full circle (360 degrees)
+    const sweep = hasOnlyOneDataPoint ? 360 : (pct / 100) * 360;
     const endAngle = startAngle + sweep;
     const path = describeArc(cx, cy, radius, startAngle, endAngle);
     const color = palette[index % palette.length];
