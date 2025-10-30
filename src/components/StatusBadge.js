@@ -4,8 +4,8 @@ import { Colors } from '../constants/Colors';
 import { Layout } from '../constants/Layout';
 
 const statusToColor = {
-  confirmed: Colors.success,
-  completed: Colors.secondary,
+  confirmed: Colors.primary, // light blue
+  completed: Colors.success, // green
   cancelled: Colors.error,
   default: Colors.border,
 };

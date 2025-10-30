@@ -503,6 +503,15 @@ const AppointmentsSection = ({ appointments = [], onRowPress, onAppointmentUpdat
                     >
                       <Text style={styles.dropdownItemText}>Cancelled</Text>
                     </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.dropdownItem}
+                      onPress={() => {
+                        setEditForm({...editForm, status: 'completed'});
+                        setStatusDropdownVisible(false);
+                      }}
+                    >
+                      <Text style={styles.dropdownItemText}>Completed</Text>
+                    </TouchableOpacity>
                   </View>
                 )}
               </View>
