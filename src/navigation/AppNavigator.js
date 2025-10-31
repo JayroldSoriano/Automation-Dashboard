@@ -29,13 +29,13 @@ const AppNavigator = () => {
   const routeToPath = useMemo(
     () => ({
       Dashboard: '/home/dashboard',
-      Login: '/login',
-      Appointment: '/appointments',
-      Services: '/services',
-      Notifications: '/notifications',
-      Reports: '/reports',
-      Settings: '/settings',
-      AddServiceScreen: '/services/add',
+      Login: '/home/dashboard/login',
+      Appointment: '/home/dashboard/appointments',
+      Services: '/home/dashboard/services',
+      Notifications: '/home/dashboard/notifications',
+      Reports: '/home/dashboard/reports',
+      Settings: '/home/dashboard/settings',
+      AddServiceScreen: '/home/dashboard/services/add',
       // AppointmentDetailsScreen handled as dynamic with optional id
     }),
     []
@@ -44,18 +44,18 @@ const AppNavigator = () => {
   const pathMatchers = useMemo(
     () => [
       { key: 'Dashboard', match: (p) => p === '/home/dashboard' || p === '/' },
-      { key: 'Login', match: (p) => p === '/login' },
-      { key: 'Appointment', match: (p) => p === '/appointments' },
-      { key: 'Services', match: (p) => p === '/services' },
-      { key: 'AddServiceScreen', match: (p) => p === '/services/add' },
-      { key: 'Notifications', match: (p) => p === '/notifications' },
-      { key: 'Reports', match: (p) => p === '/reports' },
-      { key: 'Settings', match: (p) => p === '/settings' },
+      { key: 'Login', match: (p) => p === '/home/dashboard/login' },
+      { key: 'Appointment', match: (p) => p === '/home/dashboard/appointments' },
+      { key: 'Services', match: (p) => p === '/home/dashboard/services' },
+      { key: 'AddServiceScreen', match: (p) => p === '/home/dashboard/services/add' },
+      { key: 'Notifications', match: (p) => p === '/home/dashboard/notifications' },
+      { key: 'Reports', match: (p) => p === '/home/dashboard/reports' },
+      { key: 'Settings', match: (p) => p === '/home/dashboard/settings' },
       {
         key: 'AppointmentDetailsScreen',
         match: (p) => {
-          // matches /appointments/<id>
-          const m = p.match(/^\/appointments\/([^\/]+)$/);
+          // matches /home/dashboard/appointments/<id>
+          const m = p.match(/^\/home\/dashboard\/appointments\/([^\/]+)$/);
           return m ? { params: { id: decodeURIComponent(m[1]) } } : false;
         },
       },
@@ -235,14 +235,14 @@ const AppNavigator = () => {
 
     // Sync web URL
     if (typeof window !== 'undefined') {
-      let nextPath = routeToPath[routeName] || '/';
+      let nextPath = routeToPath[routeName] || '/home/dashboard';
       if (routeName === 'AppointmentDetailsScreen') {
         // Try to use id from props if available, otherwise fallback
         const id = props?.appointment?.id || props?.appointment?.appointment_id || props?.appointment?.sender_id || props?.id;
         if (id) {
-          nextPath = `/appointments/${encodeURIComponent(id)}`;
+          nextPath = `/home/dashboard/appointments/${encodeURIComponent(id)}`;
         } else {
-          nextPath = '/appointments';
+          nextPath = '/home/dashboard/appointments';
         }
       }
       const currentPath = window.location.pathname;
