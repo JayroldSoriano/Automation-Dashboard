@@ -22,6 +22,7 @@
     "@react-navigation/native": "^7.1.17",
     "@react-navigation/stack": "^7.4.8",
     "@supabase/supabase-js": "^2.57.4",
+    "docker": "^1.0.0",
     "expo": "~54.0.9",
     "expo-blur": "^15.0.7",
     "expo-status-bar": "~3.0.8",
