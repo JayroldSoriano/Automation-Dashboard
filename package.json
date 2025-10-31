@@ -10,7 +10,7 @@
     "web": "expo start --web",
     "build:android": "expo build:android",
     "build:ios": "expo build:ios",
-    "build:web": "expo build:web",
+    "build:web": "expo export --platform web",
     "eject": "expo eject",
     "test": "jest",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx"
