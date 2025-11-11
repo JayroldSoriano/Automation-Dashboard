@@ -8,6 +8,8 @@ import AppointmentScreen from '../screens/AppointmentScreen';
 import AppointmentDetailsScreen from '../screens/AppointmentDetailsScreen';
 import ServicesScreen from '../screens/ServicesScreen';
 import AddServiceScreen from '../screens/AddServiceScreen';
+import FAQsScreen from '../screens/FAQsScreen';
+import AddFAQScreen from '../screens/AddFAQScreen';
 import NotificationScreen from '../screens/NotificationScreen';
 import ReportsScreen from '../screens/ReportsScreen';
 import { Colors } from '../constants/Colors';
@@ -39,10 +41,12 @@ const AppNavigator = () => {
       Login: '/home/dashboard/login',
       Appointment: '/home/dashboard/appointments',
       Services: '/home/dashboard/services',
+      FAQs: '/home/dashboard/faqs',
       Notifications: '/home/dashboard/notifications',
       Reports: '/home/dashboard/reports',
       Settings: '/home/dashboard/settings',
       AddServiceScreen: '/home/dashboard/services/add',
+      AddFAQScreen: '/home/dashboard/faqs/add',
       // AppointmentDetailsScreen handled as dynamic with optional id
     }),
     []
@@ -54,7 +58,9 @@ const AppNavigator = () => {
       { key: 'Login', match: (p) => p === '/home/dashboard/login' },
       { key: 'Appointment', match: (p) => p === '/home/dashboard/appointments' },
       { key: 'Services', match: (p) => p === '/home/dashboard/services' },
+      { key: 'FAQs', match: (p) => p === '/home/dashboard/faqs' },
       { key: 'AddServiceScreen', match: (p) => p === '/home/dashboard/services/add' },
+      { key: 'AddFAQScreen', match: (p) => p === '/home/dashboard/faqs/add' },
       { key: 'Notifications', match: (p) => p === '/home/dashboard/notifications' },
       { key: 'Reports', match: (p) => p === '/home/dashboard/reports' },
       { key: 'Settings', match: (p) => p === '/home/dashboard/settings' },
@@ -235,8 +241,10 @@ const AppNavigator = () => {
       { key: 'Notifications', component: NotificationScreen },
       { key: 'Reports', component: ReportsScreen },
       { key: 'Settings', component: SettingsScreen },
+      { key: 'FAQs', component: FAQsScreen },
       { key: 'AppointmentDetailsScreen', component: AppointmentDetailsScreen },
       { key: 'AddServiceScreen', component: AddServiceScreen },
+      { key: 'AddFAQScreen', component: AddFAQScreen },
     ],
     []
   );
@@ -247,6 +255,7 @@ const AppNavigator = () => {
       { key: 'Dashboard', component: HomeScreen },
       { key: 'Appointment', component: AppointmentScreen },
       { key: 'Services', component: ServicesScreen },
+      { key: 'FAQs', component: FAQsScreen },
       { key: 'Reports', component: ReportsScreen },
       { key: 'Settings', component: SettingsScreen },
     ],
