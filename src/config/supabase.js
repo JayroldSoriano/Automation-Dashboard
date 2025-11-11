@@ -1,93 +1,201 @@
 // Supabase configuration
 import { createClient } from '@supabase/supabase-js';
+import * as SecureStore from 'expo-secure-store';
 
-export const SUPABASE_CONFIG = {
-  // Replace these with your actual Supabase project details
-  url: 'https://eqxppxrprpqmvyarotzp.supabase.co', // e.g., 'https://your-project.supabase.co'
-  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxeHBweHJwcnBxbXZ5YXJvdHpwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA2MzkyNjUsImV4cCI6MjA2NjIxNTI2NX0.g3lRkXtsFaopoATiwCtXj2EBKCbD6YuS5YbJgIHyzUI', // Your public anon key
-  
-    "patients": {
-      "id": "id",
-      "name": "name",
-      "age": "age",
-      "gender": "gender",
-      "phone": "phone",
-      "email": "email",
-      "location": "location",
-      "profilepicture": "profilepicture",
-      "created_at": "created_at",
-      "sender_id": "sender_id",
-      "last_agent": "last_agent",
-      "platform": "platform",
-      "session_id": "session_id",
-      "isbotactive": "isbotactive"
+const LOGIN_SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_LOGIN_URL;
+const LOGIN_SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_LOGIN_ANON_KEY;
+
+const STORAGE_PREFIX = 'supabase.credentials';
+
+if (!LOGIN_SUPABASE_URL || !LOGIN_SUPABASE_ANON_KEY) {
+  console.warn(
+    '[supabase] Missing login credentials. Set EXPO_PUBLIC_SUPABASE_LOGIN_URL and EXPO_PUBLIC_SUPABASE_LOGIN_ANON_KEY.'
+  );
+}
+
+const createSupabaseInstance = (url, anonKey) => {
+  if (!url || !anonKey) {
+    return null;
+  }
+  return createClient(url, anonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
     },
-    "appointments": {
-      "id": "id",
-      "patient_id": "patient_id",
-      "service_name": "service_name",
-      "service_category": "service_category",
-      "service_price": "service_price",
-      "scheduled_date": "scheduled_date",
-      "scheduled_time": "scheduled_time",
-      "status": "status",
-      "created_at": "created_at"
-    },
-    "appointment_details": {
-      "patient_id": "patient_id",
-      "name": "name",
-      "age": "age",
-      "gender": "gender",
-      "phone": "phone",
-      "email": "email",
-      "location": "location",
-      "profilepicture": "profilepicture",
-      "patient_created_at": "patient_created_at",
-      "appointment_id": "appointment_id",
-      "service_name": "service_name",
-      "service_category": "service_category",
-      "service_price": "service_price",
-      "scheduled_date": "scheduled_date",
-      "scheduled_time": "scheduled_time",
-      "status": "status",
-      "appointment_created_at": "appointment_created_at",
-      "sender_id": "sender_id"
-    },
-    "services": {
-      "service_id": "service_id",
-      "service_name": "service_name",
-      "service_description": "service_description",
-      "service_category": "service_category",
-      "service_price": "service_price",
-      "currency": "currency",
-      "duration_min": "duration_min",
-      "active": "active",
-      "updated_at": "updated_at"
-    },
-    "chat_history": {
-      "id": "id",
-      "sender_id": "sender_id",
-      "text": "text",
-      "platform": "platform",
-      "role": "role",
-      "created_at": "created_at"
-    },
-    "notifications": {
-      "id": "id",
-      "patient_id": "patient_id",
-      "appointment_id": "appointment_id",
-      "message": "message",
-      "created_at": "created_at",
-      "is_read": "is_read"
-    }
-    
+  });
 };
 
-// Create and export the Supabase client
-export const supabase = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+export const authSupabase = createSupabaseInstance(
+  LOGIN_SUPABASE_URL,
+  LOGIN_SUPABASE_ANON_KEY
+);
+export let supabase = authSupabase;
 
-// Instructions for setup:
-// 1. Go to your Supabase project dashboard
-// 2. Copy your project URL and anon key from Settings > API
-// 3. Replace the values above with your actual credentials
-// 4. Update the table names to match your database schema
+let activeCredentials = {
+  userId: null,
+  url: LOGIN_SUPABASE_URL || '',
+  anonKey: LOGIN_SUPABASE_ANON_KEY || '',
+  serviceRoleKey: null,
+};
+
+const listeners = new Set();
+
+const notifyListeners = () => {
+  listeners.forEach((listener) => {
+    try {
+      listener(supabase);
+    } catch (error) {
+      console.error('[supabase] Listener error', error);
+    }
+  });
+};
+
+const storage = {
+  async setItem(key, value) {
+    try {
+      if (SecureStore?.setItemAsync) {
+        await SecureStore.setItemAsync(key, value);
+        return;
+      }
+    } catch (error) {
+      console.warn('[supabase] SecureStore setItemAsync failed', error);
+    }
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(key, value);
+    }
+  },
+  async getItem(key) {
+    try {
+      if (SecureStore?.getItemAsync) {
+        return await SecureStore.getItemAsync(key);
+      }
+    } catch (error) {
+      console.warn('[supabase] SecureStore getItemAsync failed', error);
+    }
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return window.localStorage.getItem(key);
+    }
+    return null;
+  },
+  async deleteItem(key) {
+    try {
+      if (SecureStore?.deleteItemAsync) {
+        await SecureStore.deleteItemAsync(key);
+        return;
+      }
+    } catch (error) {
+      console.warn('[supabase] SecureStore deleteItemAsync failed', error);
+    }
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.removeItem(key);
+    }
+  },
+};
+
+const getStorageKey = (userId) =>
+  userId ? `${STORAGE_PREFIX}:${userId}` : STORAGE_PREFIX;
+
+export const onSupabaseClientChange = (listener) => {
+  if (typeof listener !== 'function') return () => {};
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+};
+
+export const getSupabaseClient = () => {
+  if (!supabase) {
+    throw new Error(
+      'Supabase client is not initialized. Verify credential configuration.'
+    );
+  }
+  return supabase;
+};
+
+export const getAuthSupabaseClient = () => {
+  if (!authSupabase) {
+    throw new Error(
+      'Login Supabase client is not configured. Check environment variables.'
+    );
+  }
+  return authSupabase;
+};
+
+export const getActiveSupabaseCredentials = () => ({ ...activeCredentials });
+
+export const setSupabaseCredentials = async (
+  { userId, url, anonKey, serviceRoleKey },
+  options = {}
+) => {
+  const { persist = true } = options;
+
+  if (!url || !anonKey) {
+    throw new Error('Missing Supabase URL or anon key.');
+  }
+
+  const nextClient = createSupabaseInstance(url, anonKey);
+  if (!nextClient) {
+    throw new Error('Failed to initialize Supabase client with provided keys.');
+  }
+
+  supabase = nextClient;
+  activeCredentials = {
+    userId: userId ?? null,
+    url,
+    anonKey,
+    serviceRoleKey: serviceRoleKey ?? null,
+  };
+
+  if (persist && userId) {
+    const serialized = JSON.stringify({
+      url,
+      anonKey,
+      serviceRoleKey: serviceRoleKey ?? null,
+    });
+    await storage.setItem(getStorageKey(userId), serialized);
+  }
+
+  notifyListeners();
+  return supabase;
+};
+
+export const loadStoredSupabaseCredentials = async (userId) => {
+  if (!userId) return null;
+  const raw = await storage.getItem(getStorageKey(userId));
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed?.url || !parsed?.anonKey) {
+      return null;
+    }
+    await setSupabaseCredentials(
+      { userId, ...parsed },
+      { persist: false }
+    );
+    return parsed;
+  } catch (error) {
+    console.warn('[supabase] Failed to restore credentials', error);
+    return null;
+  }
+};
+
+export const clearSupabaseCredentials = async (userId) => {
+  if (userId) {
+    await storage.deleteItem(getStorageKey(userId));
+  }
+};
+
+export const resetSupabaseClient = () => {
+  supabase = authSupabase;
+  activeCredentials = {
+    userId: null,
+    url: LOGIN_SUPABASE_URL || '',
+    anonKey: LOGIN_SUPABASE_ANON_KEY || '',
+    serviceRoleKey: null,
+  };
+  notifyListeners();
+  return supabase;
+};
+
