@@ -12,7 +12,13 @@ import NotificationScreen from '../screens/NotificationScreen';
 import ReportsScreen from '../screens/ReportsScreen';
 import { Colors } from '../constants/Colors';
 import { useResponsive } from '../utils/useResponsive';
-import { supabase } from '../config/supabase';
+import {
+  supabase,
+  loadStoredSupabaseCredentials,
+  clearSupabaseCredentials,
+  resetSupabaseClient,
+  onSupabaseClientChange,
+} from '../config/supabase';
 
 const AppNavigator = () => {
   const { isWeb, breakpoint, scale } = useResponsive();
@@ -24,6 +30,7 @@ const AppNavigator = () => {
   const snackbarAnimation = useRef(new Animated.Value(0)).current;
   const [currentUser, setCurrentUser] = useState(null);
   const [logoutVisible, setLogoutVisible] = useState(false);
+  const [supabaseVersion, setSupabaseVersion] = useState(0);
 
   // Route <-> Path mapping for web URLs
   const routeToPath = useMemo(
@@ -65,16 +72,34 @@ const AppNavigator = () => {
 
   // Load persisted user (web) and sync initial route
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    let isMounted = true;
+    const restoreSession = async () => {
+      if (typeof window === 'undefined') return;
       try {
         const raw = window.localStorage.getItem('currentUser');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          console.log('[Auth] Loaded user from storage', { id: parsed?.id, email: parsed?.email });
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (!parsed?.id) return;
+        console.log('[Auth] Loaded user from storage', { id: parsed.id, email: parsed.email });
+        await loadStoredSupabaseCredentials(parsed.id);
+        if (isMounted) {
           setCurrentUser(parsed);
         }
-      } catch {}
-    }
+      } catch (error) {
+        console.warn('[Auth] Failed to restore session from storage', error);
+      }
+    };
+    restoreSession();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onSupabaseClientChange(() => {
+      setSupabaseVersion((prev) => prev + 1);
+    });
+    return unsubscribe;
   }, []);
 
   // On web, sync initial path and handle back/forward
@@ -140,9 +165,12 @@ const AppNavigator = () => {
 
   // Fetch unread notification count
   useEffect(() => {
+    if (!currentUser) return undefined;
+    const client = supabase;
+    if (!client) return undefined;
     const fetchUnreadCount = async () => {
       try {
-        const { count, error } = await supabase
+        const { count, error } = await client
           .from('notifications')
           .select('*', { count: 'exact', head: true })
           .eq('is_read', false);
@@ -159,7 +187,7 @@ const AppNavigator = () => {
     fetchUnreadCount();
 
     // Set up real-time subscription
-    const subscription = supabase
+    const subscription = client
       .channel('notifications_changes')
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'notifications' },
@@ -189,7 +217,7 @@ const AppNavigator = () => {
       subscription.unsubscribe();
       clearInterval(interval);
     };
-  }, []);
+  }, [currentUser, supabaseVersion]);
 
   // Reset unread count when navigating to Notifications screen
   useEffect(() => {
@@ -275,8 +303,12 @@ const AppNavigator = () => {
     navigate('Dashboard');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     console.log('[Auth] handleLogout');
+    if (currentUser?.id) {
+      await clearSupabaseCredentials(currentUser.id);
+    }
+    resetSupabaseClient();
     setCurrentUser(null);
     if (typeof window !== 'undefined') {
       try { window.localStorage.removeItem('currentUser'); } catch {}
@@ -407,9 +439,9 @@ const AppNavigator = () => {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalConfirm]}
-                onPress={() => {
+                onPress={async () => {
                   setLogoutVisible(false);
-                  handleLogout();
+                  await handleLogout();
                 }}
               >
                 <Text style={styles.modalConfirmText}>Log out</Text>

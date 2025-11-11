@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
-import { supabase } from '../config/supabase';
+import { authSupabase, setSupabaseCredentials } from '../config/supabase';
 
 const LoginScreen = ({ navigation, onLogin }) => {
   const [email, setEmail] = useState('');
@@ -20,26 +20,58 @@ const LoginScreen = ({ navigation, onLogin }) => {
     setLoading(true);
     try {
       console.log('[Login] Attempting login', { email, passwordLength: password.length });
-      const { data, error: rpcError } = await supabase
+      const { data, error: rpcError } = await authSupabase
         .rpc('verify_user_password', { p_email: email, p_password: password });
 
       console.log('[Login] RPC result', { isArray: Array.isArray(data), length: Array.isArray(data) ? data.length : null, sample: Array.isArray(data) ? data[0] : data, rpcError });
       if (rpcError) {
         throw rpcError;
       }
-      const user = Array.isArray(data) ? data[0] : data;
-      if (!user || !user.id || !user.email) {
+      const authUser = Array.isArray(data) ? data[0] : data;
+      if (!authUser || !authUser.id || !authUser.email) {
         setError('Invalid credentials');
-        console.log('[Login] Invalid credentials - empty or incomplete user', user);
+        console.log('[Login] Invalid credentials - empty or incomplete user', authUser);
         return;
       }
 
-      console.log('[Login] Success, user', { id: user.id, email: user.email });
-      onLogin?.(user);
+      const { data: profile, error: profileError } = await authSupabase
+        .from('users')
+        .select('id, full_name, email, url, anon_key, service_role_key')
+        .eq('id', authUser.id)
+        .single();
+
+      if (profileError) {
+        throw profileError;
+      }
+
+      if (!profile?.url || !profile?.anon_key) {
+        setError('Account is missing database credentials. Contact support.');
+        console.log('[Login] Missing per-user credentials', { id: profile?.id });
+        return;
+      }
+
+      await setSupabaseCredentials(
+        {
+          userId: profile.id,
+          url: profile.url,
+          anonKey: profile.anon_key,
+          serviceRoleKey: profile.service_role_key,
+        },
+        { persist: true }
+      );
+
+      const sanitizedUser = {
+        id: profile.id,
+        email: profile.email,
+        full_name: profile.full_name,
+      };
+
+      console.log('[Login] Success, user', { id: sanitizedUser.id, email: sanitizedUser.email });
+      onLogin?.(sanitizedUser);
       navigation?.navigate?.('Dashboard');
     } catch (e) {
       setError('Login failed');
-      console.error(e);
+      console.error('[Login] Error during login flow', e);
     } finally {
       setLoading(false);
       console.log('[Login] Finished login attempt');

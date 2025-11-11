@@ -35,7 +35,7 @@ export class HomeViewModel {
     try {
       // Pull from the new view that denormalizes patients + appointments
       const selectColumns =
-        'appointment_id, patient_id, sender_id, name, email, phone, gender, age, profilepicture, service_name, service_category, service_price, status, scheduled_date, scheduled_time, appointment_created_at';
+        'appointment_id, patient_id, sender_id, name, email, phone, gender, age, service_category, service_price, status, scheduled_date, scheduled_time, appointment_created_at';
 
       // Latest 50 appointments, ordered by date then time (multi-column order via chaining)
       const { data: appts, error: apptsError } = await supabase
@@ -78,14 +78,6 @@ export class HomeViewModel {
         .select('id', { count: 'exact', head: true });
 
       if (patientsCountError) throw patientsCountError;
-
-      // Distinct automations currently active = distinct non-null last_agent values
-      const { data: agentsRows, error: agentsError } = await supabase
-        .from('patients')
-        .select('last_agent')
-        .not('last_agent', 'is', null);
-
-      if (agentsError) throw agentsError;
 
       // Get platform distribution from patients table
       const { data: platformRows, error: platformError } = await supabase
@@ -178,17 +170,10 @@ export class HomeViewModel {
           ? Math.round((successfulCount / totalAppointments) * 100)
           : 0;
 
-      // Count distinct last_agent strings
-      const agentSet = new Set(
-        (agentsRows || [])
-          .map((r) => (r.last_agent || '').toString().trim())
-          .filter((v) => v.length > 0)
-      );
 
       this.updateState({
         totalPatients:
           typeof patientsCount === 'number' ? patientsCount : 0,
-        automationsRunning: agentSet.size,
         appointmentsScheduled: successfulCount,
         recentAppointments: appointmentsWithBotStatus || [],
         isLoading: false,
