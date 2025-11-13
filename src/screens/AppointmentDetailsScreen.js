@@ -7,7 +7,7 @@ import StatusBadge from '../components/StatusBadge';
 import { chatService } from '../services/chatService';
 import { supabase } from '../config/supabase';
 
-const AppointmentDetailsScreen = ({ appointment, chatHistory = [], navigation }) => {
+const AppointmentDetailsScreen = ({ appointment, chatHistory = [], navigation, route, tenantContext: tenantContextProp }) => {
   
   // State for chat functionality
   const [chatMessages, setChatMessages] = useState(chatHistory);
@@ -157,6 +157,28 @@ const AppointmentDetailsScreen = ({ appointment, chatHistory = [], navigation })
     });
   };
 
+  // Get tenant context from props (passed from TenantDashboardScreen) or route params
+  const tenantContext = tenantContextProp || route?.params?.tenantContext;
+  
+  // Helper function to navigate back to the previous screen
+  const navigateBack = () => {
+    if (tenantContext?.business) {
+      // Navigate back to tenant dashboard
+      navigation?.navigate('TenantDashboard', {
+        business: tenantContext.business,
+        businessSlug: tenantContext.businessSlug,
+      });
+    } else {
+      // Use browser back button for consistent routing
+      if (typeof window !== 'undefined' && window.history.length > 1) {
+        window.history.back();
+      } else {
+        // Fallback to Appointment screen if no history
+        navigation?.navigate('Appointment');
+      }
+    }
+  };
+
   // Header action: open status confirm
   const handleHeaderStatusPress = (newStatus) => {
     if (!appointment?.appointment_id) {
@@ -187,7 +209,7 @@ const AppointmentDetailsScreen = ({ appointment, chatHistory = [], navigation })
       setPendingStatusValue(null);
 
       if (navigation) {
-        navigation.navigate('Appointment');
+        navigateBack();
       }
     } catch (err) {
       console.error('Error updating status:', err);
@@ -243,9 +265,9 @@ const AppointmentDetailsScreen = ({ appointment, chatHistory = [], navigation })
       showSnackbar('Appointment updated successfully', 'success');
       setEditModalVisible(false);
       
-      // Refresh the page by navigating back and re-entering
+      // Navigate back to previous screen
       if (navigation) {
-        navigation.navigate('Appointment');
+        navigateBack();
       }
     } catch (error) {
       console.error('Error updating appointment:', error);
@@ -290,11 +312,16 @@ const AppointmentDetailsScreen = ({ appointment, chatHistory = [], navigation })
     new Date(a.created_at) - new Date(b.created_at)
   );
   
+  // Handle breadcrumb navigation - go back to previous screen
+  const handleBreadcrumbPress = () => {
+    navigateBack();
+  };
+  
   return (
     <ScrollView style={styles.container}>
       {/* Breadcrumb */}
       <View style={styles.breadcrumbContainer}>
-        <TouchableOpacity onPress={() => navigation?.navigate('Appointment')}>
+        <TouchableOpacity onPress={handleBreadcrumbPress}>
           <Text style={styles.breadcrumbText}>Appointments</Text>
         </TouchableOpacity>
         <Text style={styles.breadcrumbSeparator}>›</Text>

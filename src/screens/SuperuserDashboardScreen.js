@@ -1,10 +1,24 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import {
+  ScrollView,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createClient } from '@supabase/supabase-js';
 import { Colors } from '../constants/Colors';
 import { useResponsive } from '../utils/useResponsive';
-import { supabase, onSupabaseClientChange } from '../config/supabase';
+import {
+  supabase,
+  onSupabaseClientChange,
+  getActiveSupabaseCredentials,
+  setSupabaseCredentials,
+} from '../config/supabase';
 
 const statusThemes = {
   active: {
@@ -29,7 +43,7 @@ const statusThemes = {
   },
 };
 
-const SuperuserDashboardScreen = () => {
+const SuperuserDashboardScreen = ({ navigation }) => {
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -78,6 +92,7 @@ const SuperuserDashboardScreen = () => {
               subscription_expiration,
               url,
               anon_key,
+              service_role_key,
               created_at,
               updated_at
             `
@@ -206,6 +221,65 @@ const SuperuserDashboardScreen = () => {
   const formatNumber = (value) =>
     typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString() : '—';
 
+  const getBusinessSlug = (biz) => {
+    if (!biz) return '';
+    const source =
+      biz.business_name ||
+      biz.email ||
+      biz.id ||
+      biz.business_id ||
+      '';
+    if (!source) return '';
+    return String(source)
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  };
+
+  const handleViewDashboard = async (business) => {
+    if (!business?.url || !business?.anon_key) {
+      Alert.alert(
+        'Missing credentials',
+        'This business does not have Supabase credentials configured yet.'
+      );
+      return;
+    }
+
+    try {
+      const previousCredentials = getActiveSupabaseCredentials();
+      const businessPayload = {
+        id: business.id,
+        business_name: business.business_name,
+        email: business.email,
+        url: business.url,
+        anon_key: business.anon_key,
+        service_role_key: business.service_role_key,
+      };
+      await setSupabaseCredentials(
+        {
+          userId: businessPayload.id,
+          url: businessPayload.url,
+          anonKey: businessPayload.anon_key,
+          serviceRoleKey: businessPayload.service_role_key,
+        },
+        { persist: false }
+      );
+
+      navigation?.navigate?.('TenantDashboard', {
+        business: businessPayload,
+        businessSlug: getBusinessSlug(businessPayload),
+        previousCredentials,
+      });
+    } catch (err) {
+      console.error('[SuperuserDashboard] Failed to open tenant dashboard', err);
+      Alert.alert(
+        'Unable to open dashboard',
+        'Something went wrong while loading this tenant. Please try again.'
+      );
+    }
+  };
+
   const filteredBusinesses = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return businesses;
@@ -320,7 +394,15 @@ const SuperuserDashboardScreen = () => {
                     </View>
                   </View>
 
-                  <TouchableOpacity activeOpacity={0.85} style={styles.viewButton}>
+                   <TouchableOpacity
+                     activeOpacity={0.85}
+                     style={[
+                       styles.viewButton,
+                       (!business.url || !business.anon_key) && styles.viewButtonDisabled,
+                     ]}
+                     onPress={() => handleViewDashboard(business)}
+                     disabled={!business.url || !business.anon_key}
+                   >
                     <Text style={styles.viewButtonText}>View Dashboard</Text>
                     <Ionicons name="arrow-forward" size={16} color="#fff" />
                   </TouchableOpacity>
@@ -539,6 +621,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     paddingVertical: 12,
     borderRadius: 10,
+  },
+  viewButtonDisabled: {
+    opacity: 0.5,
   },
   viewButtonText: {
     color: '#fff',

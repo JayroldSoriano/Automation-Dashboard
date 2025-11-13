@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from '../screens/HomeScreen';
 import LoginScreen from '../screens/LoginScreen';
 import SuperuserDashboardScreen from '../screens/SuperuserDashboardScreen';
+import TenantDashboardScreen from '../screens/TenantDashboardScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import AppointmentScreen from '../screens/AppointmentScreen';
 import AppointmentDetailsScreen from '../screens/AppointmentDetailsScreen';
@@ -35,6 +36,25 @@ const AppNavigator = () => {
   const [logoutVisible, setLogoutVisible] = useState(false);
   const [supabaseVersion, setSupabaseVersion] = useState(0);
 
+  // Reserved routes that should not be treated as tenant slugs
+  const reservedRoutes = useMemo(
+    () => [
+      '/home/dashboard',
+      '/',
+      '/home/dashboard/login',
+      '/home/dashboard/superuser',
+      '/home/dashboard/appointments',
+      '/home/dashboard/services',
+      '/home/dashboard/faqs',
+      '/home/dashboard/notifications',
+      '/home/dashboard/reports',
+      '/home/dashboard/settings',
+      '/home/dashboard/services/add',
+      '/home/dashboard/faqs/add',
+    ],
+    []
+  );
+
   // Route <-> Path mapping for web URLs
   const routeToPath = useMemo(
     () => ({
@@ -55,28 +75,58 @@ const AppNavigator = () => {
   );
 
   const pathMatchers = useMemo(
-    () => [
-      { key: 'Dashboard', match: (p) => p === '/home/dashboard' || p === '/' },
-      { key: 'Login', match: (p) => p === '/home/dashboard/login' },
-      { key: 'SuperuserDashboard', match: (p) => p === '/home/dashboard/superuser' },
-      { key: 'Appointment', match: (p) => p === '/home/dashboard/appointments' },
-      { key: 'Services', match: (p) => p === '/home/dashboard/services' },
-      { key: 'FAQs', match: (p) => p === '/home/dashboard/faqs' },
-      { key: 'AddServiceScreen', match: (p) => p === '/home/dashboard/services/add' },
-      { key: 'AddFAQScreen', match: (p) => p === '/home/dashboard/faqs/add' },
-      { key: 'Notifications', match: (p) => p === '/home/dashboard/notifications' },
-      { key: 'Reports', match: (p) => p === '/home/dashboard/reports' },
-      { key: 'Settings', match: (p) => p === '/home/dashboard/settings' },
-      {
-        key: 'AppointmentDetailsScreen',
-        match: (p) => {
-          // matches /home/dashboard/appointments/<id>
-          const m = p.match(/^\/home\/dashboard\/appointments\/([^\/]+)$/);
-          return m ? { params: { id: decodeURIComponent(m[1]) } } : false;
+    () => {
+      const reserved = reservedRoutes;
+      return [
+        { key: 'Dashboard', match: (p) => p === '/home/dashboard' || p === '/' },
+        { key: 'Login', match: (p) => p === '/home/dashboard/login' },
+        { key: 'SuperuserDashboard', match: (p) => p === '/home/dashboard/superuser' },
+        { key: 'Appointment', match: (p) => p === '/home/dashboard/appointments' },
+        { key: 'Services', match: (p) => p === '/home/dashboard/services' },
+        { key: 'FAQs', match: (p) => p === '/home/dashboard/faqs' },
+        { key: 'AddServiceScreen', match: (p) => p === '/home/dashboard/services/add' },
+        { key: 'AddFAQScreen', match: (p) => p === '/home/dashboard/faqs/add' },
+        { key: 'Notifications', match: (p) => p === '/home/dashboard/notifications' },
+        { key: 'Reports', match: (p) => p === '/home/dashboard/reports' },
+        { key: 'Settings', match: (p) => p === '/home/dashboard/settings' },
+        {
+          key: 'AppointmentDetailsScreen',
+          match: (p) => {
+            // First check for tenant-scoped appointment: /home/dashboard/<slug>/<id>
+            const tenantApptMatch = p.match(/^\/home\/dashboard\/([^\/]+)\/([^\/]+)$/);
+            if (tenantApptMatch) {
+              const slug = decodeURIComponent(tenantApptMatch[1]);
+              const id = decodeURIComponent(tenantApptMatch[2]);
+              // Make sure the slug is not a reserved route
+              if (!reserved.includes(`/home/dashboard/${slug}`)) {
+                return { params: { id, businessSlug: slug, isTenantScoped: true } };
+              }
+            }
+            // Fallback to regular appointment route: /home/dashboard/appointments/<id>
+            const m = p.match(/^\/home\/dashboard\/appointments\/([^\/]+)$/);
+            return m ? { params: { id: decodeURIComponent(m[1]), isTenantScoped: false } } : false;
+          },
         },
-      },
-    ],
-    []
+        {
+          key: 'TenantDashboard',
+          match: (p) => {
+            // matches /home/dashboard/<slug> but excludes reserved routes
+            // Also exclude paths with two segments (those are tenant-scoped appointments)
+            if (reserved.includes(p)) return false;
+            if (p.match(/^\/home\/dashboard\/[^\/]+\/[^\/]+$/)) return false; // Skip tenant-scoped appointments
+            const m = p.match(/^\/home\/dashboard\/([^\/]+)$/);
+            if (m) {
+              const slug = decodeURIComponent(m[1]);
+              // Double-check it's not a reserved route
+              if (reserved.includes(`/home/dashboard/${slug}`)) return false;
+              return { params: { businessSlug: slug } };
+            }
+            return false;
+          },
+        },
+      ];
+    },
+    [reservedRoutes]
   );
 
   // Load persisted user (web) and sync initial route
@@ -123,7 +173,28 @@ const AppNavigator = () => {
             const matchedKey = matcher.key;
             const extraProps = result.params ? result.params : {};
             setActiveRoute(matchedKey);
-            setRouteProps((prev) => ({ ...prev, [matchedKey]: extraProps }));
+            setRouteProps((prev) => {
+              const existing = prev[matchedKey] || {};
+              let nextProps = extraProps;
+              if (matchedKey === 'TenantDashboard') {
+                nextProps = { ...existing, ...extraProps };
+              } else if (matchedKey === 'AppointmentDetailsScreen') {
+                nextProps = { ...existing, ...extraProps };
+                if (extraProps?.businessSlug && !nextProps?.tenantContext) {
+                  const tenantExisting = prev?.TenantDashboard;
+                  if (tenantExisting?.business || tenantExisting?.businessSlug) {
+                    nextProps.tenantContext = {
+                      business: tenantExisting?.business || existing?.tenantContext?.business || null,
+                      businessSlug: extraProps.businessSlug,
+                    };
+                  }
+                }
+              }
+              return {
+                ...prev,
+                [matchedKey]: nextProps,
+              };
+            });
             return true;
           }
         } else if (matcher.match === pathname) {
@@ -170,6 +241,18 @@ const AppNavigator = () => {
     }).start(() => {
       setSnackbarVisible(false);
     });
+  };
+
+  const handleSnackbarPress = () => {
+    hideSnackbar();
+    if (typeof window !== 'undefined') {
+      window.history.back();
+    } else {
+      // Fallback for native environments
+      if (activeRoute !== 'Dashboard') {
+        navigate('Dashboard');
+      }
+    }
   };
 
   // Fetch unread notification count
@@ -224,6 +307,7 @@ const AppNavigator = () => {
       { key: 'Login', component: LoginScreen },
       { key: 'Dashboard', component: HomeScreen },
       { key: 'SuperuserDashboard', component: SuperuserDashboardScreen },
+      { key: 'TenantDashboard', component: TenantDashboardScreen },
       { key: 'Appointment', component: AppointmentScreen },
       { key: 'Services', component: ServicesScreen },
       { key: 'Notifications', component: NotificationScreen },
@@ -259,16 +343,57 @@ const AppNavigator = () => {
     return baseItems;
   }, [currentUser]);
 
+  const getTenantSlug = (tenant) => {
+    if (!tenant) return null;
+    const source =
+      tenant.business_name ||
+      tenant.email ||
+      tenant.businessSlug ||
+      tenant.id ||
+      tenant.business_id ||
+      '';
+    if (!source) return null;
+    const slug = String(source)
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    return slug || (tenant.id ? String(tenant.id) : null);
+  };
+
   // Navigation function to handle route changes with props
   const navigate = (routeName, props = {}) => {
     if (routeName === 'SuperuserDashboard' && currentUser?.role !== 'admin') {
       console.warn('[Auth] Attempted to access Superuser dashboard without admin role');
       routeName = 'Dashboard';
     }
+    if (routeName === 'TenantDashboard' && currentUser?.role !== 'admin') {
+      console.warn('[Auth] Attempted to access tenant dashboard without admin role');
+      routeName = 'Dashboard';
+    }
+    const existingProps = routeProps[routeName] || {};
+    const mergedProps =
+      routeName === 'TenantDashboard'
+        ? (() => {
+            const business =
+              props?.business || existingProps?.business || routeProps?.TenantDashboard?.business;
+            const businessSlug =
+              props?.businessSlug ||
+              existingProps?.businessSlug ||
+              getTenantSlug(business);
+            return {
+              ...existingProps,
+              ...props,
+              ...(business ? { business } : {}),
+              ...(businessSlug ? { businessSlug } : {}),
+            };
+          })()
+        : props;
+
     setActiveRoute(routeName);
     setRouteProps((prev) => ({
       ...prev,
-      [routeName]: props,
+      [routeName]: mergedProps,
     }));
 
     // Sync web URL
@@ -278,14 +403,51 @@ const AppNavigator = () => {
         // Try to use id from props if available, otherwise fallback
         const id = props?.appointment?.id || props?.appointment?.appointment_id || props?.appointment?.sender_id || props?.id;
         if (id) {
-          nextPath = `/home/dashboard/appointments/${encodeURIComponent(id)}`;
+          // Check if we're navigating from TenantDashboard context
+          const tenantContext = mergedProps?.tenantContext || existingProps?.tenantContext;
+          const tenantBusiness =
+            tenantContext?.business ||
+            routeProps?.TenantDashboard?.business ||
+            existingProps?.business ||
+            null;
+          const tenantSlugFromContext =
+            tenantContext?.businessSlug ||
+            (tenantBusiness ? getTenantSlug(tenantBusiness) : null) ||
+            routeProps?.TenantDashboard?.businessSlug ||
+            existingProps?.businessSlug ||
+            null;
+          
+          // Also check if current path is tenant-scoped
+          const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+          const isTenantPath = currentPath.match(/^\/home\/dashboard\/([^\/]+)$/);
+          const currentTenantSlug =
+            isTenantPath && !reservedRoutes.includes(currentPath)
+              ? decodeURIComponent(isTenantPath[1])
+              : null;
+          
+          const finalSlug = tenantSlugFromContext || currentTenantSlug;
+          
+          if (finalSlug) {
+            nextPath = `/home/dashboard/${encodeURIComponent(finalSlug)}/${encodeURIComponent(id)}`;
+          } else {
+            nextPath = `/home/dashboard/appointments/${encodeURIComponent(id)}`;
+          }
         } else {
           nextPath = '/home/dashboard/appointments';
         }
       }
+      if (routeName === 'TenantDashboard') {
+        const slug =
+          getTenantSlug(mergedProps?.business) ||
+          mergedProps?.businessSlug ||
+          getTenantSlug(routeProps?.TenantDashboard?.business) ||
+          routeProps?.TenantDashboard?.businessSlug ||
+          getTenantSlug(existingProps?.business);
+        nextPath = slug ? `/home/dashboard/${encodeURIComponent(slug)}` : '/home/dashboard';
+      }
       const currentPath = window.location.pathname;
       if (currentPath !== nextPath) {
-        window.history.pushState({ routeName, props }, '', nextPath);
+        window.history.pushState({ routeName, props: mergedProps }, '', nextPath);
       }
     }
   };
@@ -301,8 +463,7 @@ const AppNavigator = () => {
     }
     if (currentUser && activeRoute === 'Login') {
       console.log('[Auth] User present, redirecting to', fallbackRoute);
-      setActiveRoute(fallbackRoute);
-      if (typeof window !== 'undefined') window.history.replaceState({}, '', routeToPath[fallbackRoute] || routeToPath['Dashboard']);
+      navigate(fallbackRoute);
     }
   }, [currentUser, activeRoute, routeToPath]);
 
@@ -313,7 +474,16 @@ const AppNavigator = () => {
       try { window.localStorage.setItem('currentUser', JSON.stringify(user)); } catch {}
     }
     const nextRoute = user?.role === 'admin' ? 'SuperuserDashboard' : 'Dashboard';
-    navigate(nextRoute);
+    setActiveRoute(nextRoute);
+    setRouteProps((prev) => ({ ...prev, [nextRoute]: {} }));
+
+    if (typeof window !== 'undefined') {
+      const nextPath = routeToPath[nextRoute] || '/home/dashboard';
+      const currentPath = window.location.pathname;
+      if (currentPath !== nextPath) {
+        window.history.pushState({ routeName: nextRoute, props: {} }, '', nextPath);
+      }
+    }
   };
 
   const handleLogout = async () => {
@@ -426,7 +596,11 @@ const AppNavigator = () => {
             }
           ]}
         >
-          <View style={styles.snackbarContent}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.snackbarContent}
+            onPress={handleSnackbarPress}
+          >
             <Ionicons 
               name="notifications" 
               size={20} 
@@ -436,7 +610,7 @@ const AppNavigator = () => {
             <TouchableOpacity onPress={hideSnackbar} style={styles.snackbarClose}>
               <Ionicons name="close" size={20} color="white" />
             </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         </Animated.View>
       )}
 
