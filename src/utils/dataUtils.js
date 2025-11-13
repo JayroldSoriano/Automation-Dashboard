@@ -134,7 +134,6 @@ export const processAppointmentsForTable = (appointments = [], limit = HOME_SCRE
   return appointments.slice(0, limit).map((appt, idx) => {
     const date = appt.scheduled_date || (appt.appointment_created_at ? appt.appointment_created_at.split('T')[0] : '');
     const time = appt.scheduled_time || '';
-    const profilePicture = appt.profilepicture || null;
     const name = appt.name || '—';
     const email = appt.email || '—';
     const phone = appt.phone || '—';
@@ -145,7 +144,7 @@ export const processAppointmentsForTable = (appointments = [], limit = HOME_SCRE
     
     return {
       key: rowKey,
-      data: [date, time, profilePicture, name, email, phone, service, { status, label }]
+      data: [date, time, name, email, phone, service, { status, label }]
     };
   });
 };

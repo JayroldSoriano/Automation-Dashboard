@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, Alert, Modal, TextInput, StyleSheet, Animated } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Modal, TextInput, StyleSheet, Animated } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import StatusBadge from '../StatusBadge';
 import { processAppointmentsForTable } from '../../utils/dataUtils';
@@ -146,21 +146,11 @@ const AppointmentsSection = ({ appointments = [], onRowPress, onAppointmentUpdat
         data: [
           <Text style={styles.cellSecondary}>{data[0]}</Text>, // Date
           <Text style={styles.cellSecondary}>{data[1]}</Text>, // Time
-          data[2] ? ( // Profile Picture
-            <Image 
-              source={{ uri: data[2] }} 
-              style={styles.profileImage}
-            />
-          ) : (
-            <View style={styles.profilePlaceholder}>
-              <MaterialIcons name="person" size={20} color={Colors.textSecondary} />
-            </View>
-          ),
-          <Text style={styles.cellPrimary}>{data[3]}</Text>, // Patient Name
-          <Text style={styles.cellSecondary}>{data[4]}</Text>, // Email
-          <Text style={styles.cellSecondary}>{data[5]}</Text>, // Phone
-          <Text style={styles.cellSecondary}>{data[6]}</Text>, // Service
-          <StatusBadge key={`status-${key}`} status={data[7].status} label={data[7].label} />, // Status
+          <Text style={styles.cellPrimary}>{data[2]}</Text>, // Patient Name
+          <Text style={styles.cellSecondary}>{data[3]}</Text>, // Email
+          <Text style={styles.cellSecondary}>{data[4]}</Text>, // Phone
+          <Text style={styles.cellSecondary}>{data[5]}</Text>, // Service
+          <StatusBadge key={`status-${key}`} status={data[6].status} label={data[6].label} />, // Status
           <TouchableOpacity 
             style={styles.actionButton}
             onPress={() => handleEditAppointment(appointment)}
@@ -205,9 +195,9 @@ const AppointmentsSection = ({ appointments = [], onRowPress, onAppointmentUpdat
               <TouchableOpacity 
                 key={`cell-${colIndex}`} 
                 style={styles.cell}
-                onPress={() => colIndex < 8 && onRowPress && onRowPress(rowData.appointment)}
-                activeOpacity={colIndex < 8 ? 0.7 : 1}
-                disabled={colIndex >= 8}
+                onPress={() => colIndex < 7 && onRowPress && onRowPress(rowData.appointment)}
+                activeOpacity={colIndex < 7 ? 0.7 : 1}
+                disabled={colIndex >= 7}
               >
                 {cell}
               </TouchableOpacity>
@@ -615,19 +605,6 @@ const styles = {
     color: Colors.textSecondary,
     fontSize: 13,
     fontWeight: '500',
-  },
-  profileImage: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-  },
-  profilePlaceholder: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#1d293b',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   actionButton: {
     padding: 8,

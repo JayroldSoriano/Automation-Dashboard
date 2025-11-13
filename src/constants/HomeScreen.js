@@ -24,7 +24,7 @@ export const HOME_SCREEN_CONSTANTS = {
     '#FFC0CB', '#8B5CF6', '#06B6D4', '#F59E0B', '#EF4444', 
     '#10B981', '#6366F1'
   ],
-  TABLE_COLUMNS: ['DATE', 'TIME', 'PHOTO', 'PATIENT NAME', 'EMAIL', 'PHONE', 'SERVICE', 'STATUS'],
+  TABLE_COLUMNS: ['DATE', 'TIME', 'PATIENT NAME', 'EMAIL', 'PHONE', 'SERVICE', 'STATUS'],
   MENU_ACTIONS: ['Completed', 'Reschedule', 'Cancel'],
   VIEW_MODES: {
     TABLE: 'Table',
