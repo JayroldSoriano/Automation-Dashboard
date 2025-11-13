@@ -7,6 +7,11 @@ const LOGIN_SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_LOGIN_ANON_KEY;
 
 const STORAGE_PREFIX = 'supabase.credentials';
 
+console.log('[supabase] Bootstrapping with env', {
+  urlPresent: !!LOGIN_SUPABASE_URL,
+  anonKeyPrefix: LOGIN_SUPABASE_ANON_KEY ? LOGIN_SUPABASE_ANON_KEY.slice(0, 6) : null,
+});
+
 if (!LOGIN_SUPABASE_URL || !LOGIN_SUPABASE_ANON_KEY) {
   console.warn(
     '[supabase] Missing login credentials. Set EXPO_PUBLIC_SUPABASE_LOGIN_URL and EXPO_PUBLIC_SUPABASE_LOGIN_ANON_KEY.'
@@ -17,6 +22,10 @@ const createSupabaseInstance = (url, anonKey) => {
   if (!url || !anonKey) {
     return null;
   }
+  console.log('[supabase] Creating Supabase client', {
+    url,
+    anonKeyPrefix: anonKey.slice(0, 6),
+  });
   return createClient(url, anonKey, {
     auth: {
       persistSession: false,
@@ -130,6 +139,13 @@ export const setSupabaseCredentials = async (
   options = {}
 ) => {
   const { persist = true } = options;
+
+  console.log('[supabase] setSupabaseCredentials called', {
+    userId,
+    urlPresent: !!url,
+    anonKeyPrefix: anonKey ? anonKey.slice(0, 6) : null,
+    persist,
+  });
 
   if (!url || !anonKey) {
     throw new Error('Missing Supabase URL or anon key.');

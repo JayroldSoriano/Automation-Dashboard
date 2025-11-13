@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable, TouchableOpacity, Animated, Modal } 
 import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from '../screens/HomeScreen';
 import LoginScreen from '../screens/LoginScreen';
+import SuperuserDashboardScreen from '../screens/SuperuserDashboardScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import AppointmentScreen from '../screens/AppointmentScreen';
 import AppointmentDetailsScreen from '../screens/AppointmentDetailsScreen';
@@ -38,6 +39,7 @@ const AppNavigator = () => {
   const routeToPath = useMemo(
     () => ({
       Dashboard: '/home/dashboard',
+      SuperuserDashboard: '/home/dashboard/superuser',
       Login: '/home/dashboard/login',
       Appointment: '/home/dashboard/appointments',
       Services: '/home/dashboard/services',
@@ -56,6 +58,7 @@ const AppNavigator = () => {
     () => [
       { key: 'Dashboard', match: (p) => p === '/home/dashboard' || p === '/' },
       { key: 'Login', match: (p) => p === '/home/dashboard/login' },
+      { key: 'SuperuserDashboard', match: (p) => p === '/home/dashboard/superuser' },
       { key: 'Appointment', match: (p) => p === '/home/dashboard/appointments' },
       { key: 'Services', match: (p) => p === '/home/dashboard/services' },
       { key: 'FAQs', match: (p) => p === '/home/dashboard/faqs' },
@@ -174,7 +177,14 @@ const AppNavigator = () => {
     if (!currentUser) return undefined;
     const client = supabase;
     if (!client) return undefined;
+
+    let isMounted = true;
+
     const fetchUnreadCount = async () => {
+      console.log('[Notifications] Fetching unread count', {
+        userId: currentUser?.id,
+        supabaseConfigured: !!client,
+      });
       try {
         const { count, error } = await client
           .from('notifications')
@@ -182,45 +192,22 @@ const AppNavigator = () => {
           .eq('is_read', false);
 
         if (error) throw error;
-        
-        setUnreadCount(count || 0);
+
+        if (isMounted) {
+          setUnreadCount(count || 0);
+          console.log('[Notifications] Unread count updated', { count });
+        }
       } catch (err) {
         console.error('Error fetching unread notifications:', err);
       }
     };
 
-    // Fetch initial count
+    // Fetch initial count and keep polling (no websocket subscription)
     fetchUnreadCount();
-
-    // Set up real-time subscription
-    const subscription = client
-      .channel('notifications_changes')
-      .on('postgres_changes', 
-        { event: 'INSERT', schema: 'public', table: 'notifications' },
-        (payload) => {
-          // Show snackbar for new notifications
-          const newNotification = payload.new;
-          const message = newNotification.message || 'New notification received';
-          showSnackbar(message);
-          
-          // Update unread count
-          fetchUnreadCount();
-        }
-      )
-      .on('postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'notifications' },
-        () => {
-          // Update unread count when notifications are marked as read
-          fetchUnreadCount();
-        }
-      )
-      .subscribe();
-
-    // Fetch count periodically (every 30 seconds)
     const interval = setInterval(fetchUnreadCount, 30000);
 
     return () => {
-      subscription.unsubscribe();
+      isMounted = false;
       clearInterval(interval);
     };
   }, [currentUser, supabaseVersion]);
@@ -236,6 +223,7 @@ const AppNavigator = () => {
     () => [
       { key: 'Login', component: LoginScreen },
       { key: 'Dashboard', component: HomeScreen },
+      { key: 'SuperuserDashboard', component: SuperuserDashboardScreen },
       { key: 'Appointment', component: AppointmentScreen },
       { key: 'Services', component: ServicesScreen },
       { key: 'Notifications', component: NotificationScreen },
@@ -250,20 +238,33 @@ const AppNavigator = () => {
   );
 
   // Main navigation menu items (excludes detail/add screens)
-  const mainMenuItems = useMemo(
-    () => [
-      { key: 'Dashboard', component: HomeScreen },
-      { key: 'Appointment', component: AppointmentScreen },
-      { key: 'Services', component: ServicesScreen },
-      { key: 'FAQs', component: FAQsScreen },
-      { key: 'Reports', component: ReportsScreen },
-      { key: 'Settings', component: SettingsScreen },
-    ],
-    []
-  );
+  const mainMenuItems = useMemo(() => {
+    const baseItems = [
+      { key: 'Dashboard', label: 'Dashboard', component: HomeScreen },
+      { key: 'Appointment', label: 'Appointments', component: AppointmentScreen },
+      { key: 'Services', label: 'Services', component: ServicesScreen },
+      { key: 'FAQs', label: 'FAQs', component: FAQsScreen },
+      { key: 'Reports', label: 'Reports', component: ReportsScreen },
+      { key: 'Settings', label: 'Settings', component: SettingsScreen },
+    ];
+
+    if (currentUser?.role === 'admin') {
+      return [
+        { key: 'SuperuserDashboard', label: 'Dashboard', component: SuperuserDashboardScreen },
+        { key: 'Reports', label: 'Global Reports', component: ReportsScreen },
+        { key: 'Settings', label: 'System Settings', component: SettingsScreen },
+      ];
+    }
+
+    return baseItems;
+  }, [currentUser]);
 
   // Navigation function to handle route changes with props
   const navigate = (routeName, props = {}) => {
+    if (routeName === 'SuperuserDashboard' && currentUser?.role !== 'admin') {
+      console.warn('[Auth] Attempted to access Superuser dashboard without admin role');
+      routeName = 'Dashboard';
+    }
     setActiveRoute(routeName);
     setRouteProps((prev) => ({
       ...prev,
@@ -291,15 +292,17 @@ const AppNavigator = () => {
 
   // Auth guards
   useEffect(() => {
+    const fallbackRoute = currentUser?.role === 'admin' ? 'SuperuserDashboard' : 'Dashboard';
+
     if (!currentUser && activeRoute !== 'Login') {
       console.log('[Auth] No current user, redirecting to Login');
       setActiveRoute('Login');
       if (typeof window !== 'undefined') window.history.replaceState({}, '', routeToPath['Login']);
     }
     if (currentUser && activeRoute === 'Login') {
-      console.log('[Auth] User present, redirecting to Dashboard');
-      setActiveRoute('Dashboard');
-      if (typeof window !== 'undefined') window.history.replaceState({}, '', routeToPath['Dashboard']);
+      console.log('[Auth] User present, redirecting to', fallbackRoute);
+      setActiveRoute(fallbackRoute);
+      if (typeof window !== 'undefined') window.history.replaceState({}, '', routeToPath[fallbackRoute] || routeToPath['Dashboard']);
     }
   }, [currentUser, activeRoute, routeToPath]);
 
@@ -309,7 +312,8 @@ const AppNavigator = () => {
     if (typeof window !== 'undefined') {
       try { window.localStorage.setItem('currentUser', JSON.stringify(user)); } catch {}
     }
-    navigate('Dashboard');
+    const nextRoute = user?.role === 'admin' ? 'SuperuserDashboard' : 'Dashboard';
+    navigate(nextRoute);
   };
 
   const handleLogout = async () => {
@@ -335,7 +339,12 @@ const AppNavigator = () => {
       <View style={[styles.headerContainer, { height: headerHeight }]}>
         <View style={styles.headerLeft}>
           <Ionicons name="flag" size={logoSize} color={Colors.primary} />
-          <Text style={[styles.brandText, { fontSize: 16 * (isWeb ? scale : 1) }]}>Dental Analytics</Text>
+          <View style={styles.brandTextContainer}>
+            <Text style={[styles.brandText, { fontSize: 16 * (isWeb ? scale : 1) }]}>Dental Analytics</Text>
+            {currentUser?.role === 'admin' && (
+              <Text style={[styles.brandTextSuffix, { fontSize: 12 * (isWeb ? scale : 1) }]}>/superuser</Text>
+            )}
+          </View>
         </View>
         <View style={styles.headerCenter}>
           {currentUser ? (
@@ -350,7 +359,7 @@ const AppNavigator = () => {
                         { fontSize: 12 * (isWeb ? scale : 1), color: isActive ? Colors.primary : Colors.textSecondary },
                       ]}
                     >
-                      {route.key}
+                      {route.label}
                     </Text>
                   </Pressable>
                 );
@@ -480,9 +489,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
+  brandTextContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+  },
   brandText: {
     color: Colors.text,
     fontWeight: '700',
+  },
+  brandTextSuffix: {
+    color: Colors.textSecondary,
+    fontWeight: '600',
+    textTransform: 'lowercase',
   },
   headerCenter: {
     flex: 1,

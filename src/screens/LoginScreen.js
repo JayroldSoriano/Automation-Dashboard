@@ -36,7 +36,22 @@ const LoginScreen = ({ navigation, onLogin }) => {
 
       const { data: profile, error: profileError } = await authSupabase
         .from('users')
-        .select('id, full_name, email, url, anon_key, service_role_key')
+        .select(
+          `
+            id,
+            business_name,
+            email,
+            role,
+            status,
+            subscription_tier,
+            subscription_expiration,
+            url,
+            anon_key,
+            service_role_key,
+            created_at,
+            updated_at
+          `
+        )
         .eq('id', authUser.id)
         .single();
 
@@ -63,12 +78,21 @@ const LoginScreen = ({ navigation, onLogin }) => {
       const sanitizedUser = {
         id: profile.id,
         email: profile.email,
-        full_name: profile.full_name,
+        businessName: profile.business_name,
+        role: profile.role,
+        status: profile.status,
+        subscriptionTier: profile.subscription_tier,
+        subscriptionExpiration: profile.subscription_expiration,
+        createdAt: profile.created_at,
+        updatedAt: profile.updated_at,
       };
 
-      console.log('[Login] Success, user', { id: sanitizedUser.id, email: sanitizedUser.email });
+      console.log('[Login] Success, user', {
+        id: sanitizedUser.id,
+        email: sanitizedUser.email,
+        role: sanitizedUser.role,
+      });
       onLogin?.(sanitizedUser);
-      navigation?.navigate?.('Dashboard');
     } catch (e) {
       setError('Login failed');
       console.error('[Login] Error during login flow', e);
