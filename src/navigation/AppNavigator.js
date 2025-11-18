@@ -12,6 +12,7 @@ import ServicesScreen from '../screens/ServicesScreen';
 import AddServiceScreen from '../screens/AddServiceScreen';
 import FAQsScreen from '../screens/FAQsScreen';
 import AddFAQScreen from '../screens/AddFAQScreen';
+import SetupNewBusinessScreen from '../screens/SetupNewBusinessScreen';
 import NotificationScreen from '../screens/NotificationScreen';
 import ReportsScreen from '../screens/ReportsScreen';
 import { Colors } from '../constants/Colors';
@@ -51,6 +52,7 @@ const AppNavigator = () => {
       '/home/dashboard/settings',
       '/home/dashboard/services/add',
       '/home/dashboard/faqs/add',
+      '/home/dashboard/superuser/setup-business',
     ],
     []
   );
@@ -69,6 +71,7 @@ const AppNavigator = () => {
       Settings: '/home/dashboard/settings',
       AddServiceScreen: '/home/dashboard/services/add',
       AddFAQScreen: '/home/dashboard/faqs/add',
+      SetupNewBusinessScreen: '/home/dashboard/superuser/setup-business',
       // AppointmentDetailsScreen handled as dynamic with optional id
     }),
     []
@@ -86,6 +89,7 @@ const AppNavigator = () => {
         { key: 'FAQs', match: (p) => p === '/home/dashboard/faqs' },
         { key: 'AddServiceScreen', match: (p) => p === '/home/dashboard/services/add' },
         { key: 'AddFAQScreen', match: (p) => p === '/home/dashboard/faqs/add' },
+        { key: 'SetupNewBusinessScreen', match: (p) => p === '/home/dashboard/superuser/setup-business' },
         { key: 'Notifications', match: (p) => p === '/home/dashboard/notifications' },
         { key: 'Reports', match: (p) => p === '/home/dashboard/reports' },
         { key: 'Settings', match: (p) => p === '/home/dashboard/settings' },
@@ -317,6 +321,7 @@ const AppNavigator = () => {
       { key: 'AppointmentDetailsScreen', component: AppointmentDetailsScreen },
       { key: 'AddServiceScreen', component: AddServiceScreen },
       { key: 'AddFAQScreen', component: AddFAQScreen },
+      { key: 'SetupNewBusinessScreen', component: SetupNewBusinessScreen },
     ],
     []
   );

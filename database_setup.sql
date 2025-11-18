@@ -1,6 +1,90 @@
 -- Database setup for Automation Dashboard
 -- Run these commands in your Supabase SQL editor
 
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- Users table and triggers
+CREATE TABLE IF NOT EXISTS public.users (
+  id UUID NOT NULL DEFAULT gen_random_uuid(),
+  business_name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  password TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  url TEXT NULL,
+  role TEXT NOT NULL DEFAULT 'user',
+  subscription_tier TEXT NOT NULL DEFAULT 'Standard',
+  subscription_expiration DATE NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  CONSTRAINT users_pkey PRIMARY KEY (id),
+  CONSTRAINT users_email_key UNIQUE (email),
+  CONSTRAINT users_role_check CHECK (role = ANY (ARRAY['admin', 'user'])),
+  CONSTRAINT users_status_check CHECK (status = ANY (ARRAY['active', 'inactive'])),
+  CONSTRAINT users_subscription_tier_check CHECK (
+    subscription_tier = ANY (ARRAY['Standard', 'Premium', 'Enterprise'])
+  )
+);
+
+-- Helper trigger functions
+CREATE OR REPLACE FUNCTION public.hash_user_password()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF TG_OP = 'INSERT' OR NEW.password IS DISTINCT FROM OLD.password THEN
+    NEW.password = crypt(NEW.password, gen_salt('bf'));
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.update_user_status()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.subscription_expiration IS NOT NULL AND NEW.subscription_expiration < CURRENT_DATE THEN
+    NEW.status = 'inactive';
+  ELSIF NEW.status IS NULL THEN
+    NEW.status = 'active';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+-- Triggers
+CREATE TRIGGER trigger_hash_password
+BEFORE INSERT OR UPDATE ON public.users
+FOR EACH ROW EXECUTE FUNCTION public.hash_user_password();
+
+CREATE TRIGGER users_check_subscription
+BEFORE INSERT OR UPDATE ON public.users
+FOR EACH ROW EXECUTE FUNCTION public.update_user_status();
+
+CREATE TRIGGER users_set_updated_at
+BEFORE UPDATE ON public.users
+FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- Ensure patients and appointments reference businesses
+ALTER TABLE IF EXISTS public.patients
+  ADD COLUMN IF NOT EXISTS business_id UUID REFERENCES public.users(id);
+
+ALTER TABLE IF EXISTS public.appointments
+  ADD COLUMN IF NOT EXISTS business_id UUID REFERENCES public.users(id);
+
+CREATE INDEX IF NOT EXISTS idx_patients_business_id ON public.patients(business_id);
+CREATE INDEX IF NOT EXISTS idx_appointments_business_id ON public.appointments(business_id);
+
 -- Verify user password via RPC for Supabase client
 create or replace function public.verify_user_password(p_email text, p_password text)
 returns setof public.users
