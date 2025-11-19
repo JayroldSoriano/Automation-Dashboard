@@ -4,9 +4,10 @@ import { HOME_SCREEN_CONSTANTS } from '../constants/HomeScreen';
 
 /**
  * Custom hook for HomeScreen logic and state management
+ * @param {string} businessId - The business ID to filter data by
  * @returns {Object} HomeScreen state and handlers
  */
-export const useHomeScreen = () => {
+export const useHomeScreen = (businessId) => {
   const [viewState, setViewState] = useState({
     inquiries: 0,
     errors: 0,
@@ -20,8 +21,8 @@ export const useHomeScreen = () => {
   const viewModelRef = useRef(null);
 
   useEffect(() => {
-    // Initialize ViewModel
-    viewModelRef.current = new HomeViewModel();
+    // Initialize ViewModel with businessId
+    viewModelRef.current = new HomeViewModel(businessId);
 
     // Add listener for state changes
     const handleStateChange = (newState) => {
@@ -47,7 +48,7 @@ export const useHomeScreen = () => {
       }
       clearInterval(intervalId);
     };
-  }, []);
+  }, [businessId]);
 
   const toggleView = () => {
     setActiveTab(prev => 

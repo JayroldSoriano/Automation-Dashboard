@@ -12,7 +12,9 @@ import HorizontalSegmentedBar from '../components/HorizontalSegmentedBar';
 import StatCard from '../components/StatCard';
 import { chatService } from '../services/chatService';
 
-const ReportsScreen = ({ navigation }) => {
+const ReportsScreen = ({ navigation, currentUser }) => {
+  // Extract business ID from current user (user.id is the business_id)
+  const businessId = currentUser?.id || null;
   const [activeTab, setActiveTab] = useState('patient');
   const [patients, setPatients] = useState([]);
   const [conversations, setConversations] = useState([]);
@@ -24,10 +26,17 @@ const ReportsScreen = ({ navigation }) => {
       
       try {
         // Fetch patients from patients table
-        const { data: patientsData, error: patientsError } = await supabase
+        let patientsQuery = supabase
           .from('patients')
-          .select('id, name, age, gender, phone, email, location, profilepicture, created_at, sender_id, last_agent, platform')
+          .select('id, name, age, gender, phone, email, location, created_at, sender_id, last_agent, platform, business_id')
           .order('created_at', { ascending: false });
+        
+        // Filter by business_id if provided
+        if (businessId) {
+          patientsQuery = patientsQuery.eq('business_id', businessId);
+        }
+        
+        const { data: patientsData, error: patientsError } = await patientsQuery;
 
         if (patientsError) throw patientsError;
         
@@ -35,7 +44,7 @@ const ReportsScreen = ({ navigation }) => {
         setPatients(patientsData);
 
         // Fetch chatbot conversations from chatService
-        const conversationsData = await chatService.getConversations(50);
+        const conversationsData = await chatService.getConversations(businessId, 50);
         const mockConversations = [
           {
             session_id: 'SESS-001',

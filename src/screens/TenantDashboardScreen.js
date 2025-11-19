@@ -144,7 +144,8 @@ const TenantDashboardScreen = ({ navigation, route, business: businessProp, prev
             onRowPress={async (appointment) => {
               if (!navigation) return;
               try {
-                const chatHistory = await chatService.getChatHistory(appointment.sender_id);
+                const businessId = business?.id || appointment?.business_id || null;
+                const chatHistory = await chatService.getChatHistory(appointment.sender_id, businessId);
                 navigation.navigate('AppointmentDetailsScreen', {
                   appointment,
                   chatHistory,

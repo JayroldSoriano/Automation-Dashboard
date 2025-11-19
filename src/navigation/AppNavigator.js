@@ -582,7 +582,9 @@ const AppNavigator = () => {
           const Component = route.component;
           const props = routeProps[route.key] || {};
           const extra = route.key === 'Login' ? { onLogin: handleLogin } : {};
-          return <Component key={route.key} navigation={{ navigate }} {...props} {...extra} />;
+          // Pass currentUser to Dashboard, Appointment, Services, FAQs, and Reports screens for business_id filtering
+          const userProps = ['Dashboard', 'Appointment', 'Services', 'FAQs', 'Reports'].includes(route.key) ? { currentUser } : {};
+          return <Component key={route.key} navigation={{ navigate }} {...props} {...extra} {...userProps} />;
         })}
       </View>
 

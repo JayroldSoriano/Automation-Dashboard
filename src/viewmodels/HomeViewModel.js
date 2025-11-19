@@ -2,7 +2,8 @@
 import { supabase } from '../config/supabase';
 
 export class HomeViewModel {
-  constructor() {
+  constructor(businessId) {
+    this.businessId = businessId;
     this.listeners = [];
     this.state = {
       totalPatients: 0,
@@ -33,73 +34,92 @@ export class HomeViewModel {
     this.updateState({ isLoading: true });
 
     try {
-      // Pull from the new view that denormalizes patients + appointments
+      // Pull from the appointment_details view that denormalizes patients + appointments
+      // The view includes: patient fields (id, name, age, gender, phone, email, location, sender_id, platform, isbotactive, business_id)
+      // and appointment fields (id as appointment_id, service_name, service_category, service_price, scheduled_date, scheduled_time, status, iscomplete, created_at as appointment_created_at)
       const selectColumns =
-        'appointment_id, patient_id, sender_id, name, email, phone, gender, age, service_category, service_price, status, scheduled_date, scheduled_time, appointment_created_at';
+        'appointment_id, patient_id, sender_id, name, email, phone, gender, age, service_name, service_category, service_price, status, scheduled_date, scheduled_time, appointment_created_at, business_id, isbotactive, location, platform';
 
       // Latest 50 appointments, ordered by date then time (multi-column order via chaining)
-      const { data: appts, error: apptsError } = await supabase
+      let query = supabase
         .from('appointment_details')
         .select(selectColumns)
         .order('scheduled_date', { ascending: false })
         .order('scheduled_time', { ascending: false })
         .limit(50);
+      
+      // Filter by business_id if provided
+      if (this.businessId) {
+        query = query.eq('business_id', this.businessId);
+      }
+      
+      const { data: appts, error: apptsError } = await query;
 
       if (apptsError) throw apptsError;
 
-      // Fetch isbotactive status from patients table for each appointment
-      const senderIds = [...new Set(appts.map(apt => apt.sender_id).filter(Boolean))];
-      let patientBotStatuses = {};
-      
-      if (senderIds.length > 0) {
-        const { data: patients, error: patientsError } = await supabase
-          .from('patients')
-          .select('sender_id, isbotactive')
-          .in('sender_id', senderIds);
-        
-        if (patientsError) throw patientsError;
-        
-        // Create a map of sender_id to isbotactive status
-        patientBotStatuses = patients.reduce((acc, patient) => {
-          acc[patient.sender_id] = patient.isbotactive;
-          return acc;
-        }, {});
-      }
-
-      // Merge isbotactive status into appointments
+      // isbotactive is now included directly in the appointment_details view, so no need to fetch separately
+      // Use isbotactive from the view, defaulting to true if not found
       const appointmentsWithBotStatus = appts.map(apt => ({
         ...apt,
-        isbotactive: patientBotStatuses[apt.sender_id] !== false // Default to true if not found
+        isbotactive: apt.isbotactive !== false // Default to true if not found or null
       }));
 
       // Total distinct patients (authoritative)
-      const { count: patientsCount, error: patientsCountError } = await supabase
+      let patientsCountQuery = supabase
         .from('patients')
         .select('id', { count: 'exact', head: true });
+      
+      // Filter by business_id if provided
+      if (this.businessId) {
+        patientsCountQuery = patientsCountQuery.eq('business_id', this.businessId);
+      }
+      
+      const { count: patientsCount, error: patientsCountError } = await patientsCountQuery;
 
       if (patientsCountError) throw patientsCountError;
 
       // Get platform distribution from patients table
-      const { data: platformRows, error: platformError } = await supabase
+      let platformQuery = supabase
         .from('patients')
         .select('platform')
         .not('platform', 'is', null);
+      
+      // Filter by business_id if provided
+      if (this.businessId) {
+        platformQuery = platformQuery.eq('business_id', this.businessId);
+      }
+      
+      const { data: platformRows, error: platformError } = await platformQuery;
 
       if (platformError) throw platformError;
 
       // Get location distribution from patients table
-      const { data: locationRows, error: locationError } = await supabase
+      let locationQuery = supabase
         .from('patients')
         .select('location')
         .not('location', 'is', null);
+      
+      // Filter by business_id if provided
+      if (this.businessId) {
+        locationQuery = locationQuery.eq('business_id', this.businessId);
+      }
+      
+      const { data: locationRows, error: locationError } = await locationQuery;
 
       if (locationError) throw locationError;
 
       // Get all unique service categories from appointments table
-      const { data: allServicesRows, error: allServicesError } = await supabase
+      let servicesQuery = supabase
         .from('appointments')
         .select('service_category')
         .not('service_category', 'is', null);
+      
+      // Filter by business_id if provided
+      if (this.businessId) {
+        servicesQuery = servicesQuery.eq('business_id', this.businessId);
+      }
+      
+      const { data: allServicesRows, error: allServicesError } = await servicesQuery;
 
       if (allServicesError) throw allServicesError;
 

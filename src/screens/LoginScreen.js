@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
-import { authSupabase, setSupabaseCredentials } from '../config/supabase';
+import { authSupabase } from '../config/supabase';
 
 const LoginScreen = ({ navigation, onLogin }) => {
   const [email, setEmail] = useState('');
@@ -45,9 +45,6 @@ const LoginScreen = ({ navigation, onLogin }) => {
             status,
             subscription_tier,
             subscription_expiration,
-            url,
-            anon_key,
-            service_role_key,
             created_at,
             updated_at
           `
@@ -58,22 +55,6 @@ const LoginScreen = ({ navigation, onLogin }) => {
       if (profileError) {
         throw profileError;
       }
-
-      if (!profile?.url || !profile?.anon_key) {
-        setError('Account is missing database credentials. Contact support.');
-        console.log('[Login] Missing per-user credentials', { id: profile?.id });
-        return;
-      }
-
-      await setSupabaseCredentials(
-        {
-          userId: profile.id,
-          url: profile.url,
-          anonKey: profile.anon_key,
-          serviceRoleKey: profile.service_role_key,
-        },
-        { persist: true }
-      );
 
       const sanitizedUser = {
         id: profile.id,

@@ -7,7 +7,9 @@ import { Colors } from '../constants/Colors';
 import { Layout } from '../constants/Layout';
 import FAQsSection from '../components/sections/FAQsSection';
 
-const FAQsScreen = ({ navigation }) => {
+const FAQsScreen = ({ navigation, currentUser }) => {
+  // Extract business ID from current user (user.id is the business_id)
+  const businessId = currentUser?.id || null;
   const [faqs, setFaqs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -17,10 +19,17 @@ const FAQsScreen = ({ navigation }) => {
   const fetchFaqs = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let faqsQuery = supabase
         .from('faqs')
-        .select('faq_id, question, answer, category, updated_at')
+        .select('faq_id, question, answer, category, updated_at, business_id')
         .order('question', { ascending: true });
+      
+      // Filter by business_id if provided
+      if (businessId) {
+        faqsQuery = faqsQuery.eq('business_id', businessId);
+      }
+      
+      const { data, error } = await faqsQuery;
 
       if (error) throw error;
 
@@ -156,7 +165,7 @@ const FAQsScreen = ({ navigation }) => {
 
       {/* Table */}
       <View style={styles.tableWrapper}>
-        <FAQsSection faqs={filteredFaqs} onFAQUpdate={fetchFaqs} />
+        <FAQsSection faqs={filteredFaqs} onFAQUpdate={fetchFaqs} businessId={businessId} />
       </View>
     </View>
   );

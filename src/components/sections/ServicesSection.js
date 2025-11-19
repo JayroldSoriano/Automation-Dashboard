@@ -6,8 +6,14 @@ import { supabase } from '../../config/supabase';
 
 const SERVICES_TABLE_COLUMNS = ['SERVICE NAME', 'DESCRIPTION', 'CATEGORY', 'PRICE', 'DURATION', 'ACTIONS'];
 
-const ServicesSection = ({ services = [], onRowPress, onServiceUpdate }) => {
+const ServicesSection = ({ services = [], onRowPress, onServiceUpdate, businessId }) => {
+  // Filter services by business_id if provided
+  const filteredServices = businessId 
+    ? services.filter(svc => svc.business_id === businessId)
+    : services;
+  
   console.log('ServicesSection received services:', services?.length || 0);
+  console.log('Filtered services by business_id:', filteredServices?.length || 0);
 
   // State for edit modal
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -86,10 +92,17 @@ const ServicesSection = ({ services = [], onRowPress, onServiceUpdate }) => {
         active: editForm.active
       };
 
-      const { error } = await supabase
+      let updateQuery = supabase
         .from('services')
         .update(updateData)
         .eq('service_id', editingService.service_id);
+      
+      // Add business_id filter for security if provided
+      if (businessId) {
+        updateQuery = updateQuery.eq('business_id', businessId);
+      }
+
+      const { error } = await updateQuery;
 
       if (error) throw error;
 
@@ -108,7 +121,7 @@ const ServicesSection = ({ services = [], onRowPress, onServiceUpdate }) => {
   };
 
   const renderTableData = () => {
-    return services.map((service, index) => {
+    return filteredServices.map((service, index) => {
       const serviceKey = `${service.service_id || service.service_name}-${index}`;
       
       return {

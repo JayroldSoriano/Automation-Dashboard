@@ -2,14 +2,21 @@ import { supabase } from '../config/supabase';
 
 export const chatService = {
   // Fetch chat history for a specific sender
-  async getChatHistory(senderId, limit = 100) {
+  async getChatHistory(senderId, businessId, limit = 100) {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('chat_history')
         .select('*')
         .eq('sender_id', senderId)
         .order('created_at', { ascending: true })
         .limit(limit);
+      
+      // Filter by business_id if provided
+      if (businessId) {
+        query = query.eq('business_id', businessId);
+      }
+      
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching chat history:', error);
@@ -24,11 +31,15 @@ export const chatService = {
   },
 
   // Add a new message to chat history
-  async addMessage(senderId, text, platform, role) {
+  async addMessage(senderId, text, platform, role, businessId) {
     try {
       // Validate input parameters
       if (!senderId || !text || !platform || !role) {
         throw new Error('Missing required parameters for message');
+      }
+
+      if (!businessId) {
+        throw new Error('business_id is required for chat messages');
       }
 
       if (!['user', 'bot'].includes(role)) {
@@ -40,6 +51,7 @@ export const chatService = {
         text: text.trim(),
         platform: platform,
         role: role,
+        business_id: businessId,
         created_at: new Date().toISOString()
       };
 
@@ -61,17 +73,23 @@ export const chatService = {
   },
 
   // Update patient's bot active status
-  async updatePatientBotStatus(senderId, isBotActive) {
+  async updatePatientBotStatus(senderId, isBotActive, businessId) {
     try {
       if (!senderId) {
         throw new Error('Missing sender_id parameter');
       }
 
-      const { data, error } = await supabase
+      let updateQuery = supabase
         .from('patients')
         .update({ isbotactive: isBotActive })
-        .eq('sender_id', senderId)
-        .select();
+        .eq('sender_id', senderId);
+      
+      // Filter by business_id if provided for security
+      if (businessId) {
+        updateQuery = updateQuery.eq('business_id', businessId);
+      }
+      
+      const { data, error } = await updateQuery.select();
 
       if (error) {
         console.error('Error updating patient bot status:', error);
@@ -86,14 +104,21 @@ export const chatService = {
   },
 
   // Fetch chatbot conversations grouped by sender_id
-  async getConversations(limit = 50) {
+  async getConversations(businessId, limit = 50) {
     try {
       // First, get all chat messages ordered by created_at
-      const { data: chatMessages, error: chatError } = await supabase
+      let chatQuery = supabase
         .from('chat_history')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(limit * 10); // Get more messages to process
+      
+      // Filter by business_id if provided
+      if (businessId) {
+        chatQuery = chatQuery.eq('business_id', businessId);
+      }
+      
+      const { data: chatMessages, error: chatError } = await chatQuery;
 
       if (chatError) {
         console.error('Error fetching chat messages:', chatError);
@@ -119,10 +144,17 @@ export const chatService = {
 
       // Get patient names for all sender_ids
       const senderIds = Array.from(sessionsMap.keys());
-      const { data: patientsData, error: patientsError } = await supabase
+      let patientsQuery = supabase
         .from('patients')
         .select('sender_id, name, session_id')
         .in('sender_id', senderIds);
+      
+      // Filter by business_id if provided
+      if (businessId) {
+        patientsQuery = patientsQuery.eq('business_id', businessId);
+      }
+      
+      const { data: patientsData, error: patientsError } = await patientsQuery;
 
       if (patientsError) {
         console.error('Error fetching patients:', patientsError);

@@ -7,7 +7,9 @@ import { Colors } from '../constants/Colors';
 import { Layout } from '../constants/Layout';
 import ServicesSection from '../components/sections/ServicesSection';
 
-const ServicesScreen = ({ navigation }) => {
+const ServicesScreen = ({ navigation, currentUser }) => {
+  // Extract business ID from current user (user.id is the business_id)
+  const businessId = currentUser?.id || null;
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -21,21 +23,35 @@ const ServicesScreen = ({ navigation }) => {
     
     try {
       // Fetch services from services table using the schema from supabase.js
-      const { data, error } = await supabase
+      let servicesQuery = supabase
         .from('services')
-        .select('service_id, service_name, service_description, service_category, service_price, currency, duration_min, active, updated_at')
+        .select('service_id, service_name, service_description, service_category, service_price, currency, duration_min, active, updated_at, business_id')
         .eq('active', true)
         .order('service_name', { ascending: true });
+      
+      // Filter by business_id if provided
+      if (businessId) {
+        servicesQuery = servicesQuery.eq('business_id', businessId);
+      }
+      
+      const { data, error } = await servicesQuery;
 
       if (error) throw error;
       
       // Get appointment counts for each service
       const servicesWithCounts = await Promise.all(
         data.map(async (service) => {
-          const { count: appointmentCount } = await supabase
+          let appointmentCountQuery = supabase
             .from('appointments')
             .select('*', { count: 'exact', head: true })
             .eq('service_name', service.service_name);
+          
+          // Filter by business_id if provided
+          if (businessId) {
+            appointmentCountQuery = appointmentCountQuery.eq('business_id', businessId);
+          }
+          
+          const { count: appointmentCount } = await appointmentCountQuery;
 
           return {
             ...service,
@@ -214,6 +230,7 @@ const ServicesScreen = ({ navigation }) => {
           services={filteredServices} 
           onRowPress={handleRowPress}
           onServiceUpdate={fetchServices}
+          businessId={businessId}
         />
       </View>
     </View>

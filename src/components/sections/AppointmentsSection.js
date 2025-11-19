@@ -7,10 +7,25 @@ import { HOME_SCREEN_CONSTANTS } from '../../constants/HomeScreen';
 import { Colors } from '../../constants/Colors';
 import { supabase } from '../../config/supabase';
 
-const AppointmentsSection = ({ appointments = [], onRowPress, onAppointmentUpdate }) => {
+/**
+ * AppointmentsSection component
+ * 
+ * Works with the appointment_details view which includes:
+ * - Patient fields: id (as patient_id), name, age, gender, phone, email, location, sender_id, platform, isbotactive, business_id
+ * - Appointment fields: id (as appointment_id), service_name, service_category, service_price, scheduled_date, scheduled_time, status, iscomplete, created_at (as appointment_created_at)
+ * 
+ * The view joins patients and appointments on patient_id and business_id.
+ */
+const AppointmentsSection = ({ appointments = [], onRowPress, onAppointmentUpdate, businessId }) => {
+  // Filter appointments by business_id if provided
+  const filteredAppointments = businessId 
+    ? appointments.filter(apt => apt.business_id === businessId)
+    : appointments;
+  
   console.log('AppointmentsSection received appointments:', appointments?.length || 0);
+  console.log('Filtered appointments by business_id:', filteredAppointments?.length || 0);
   // Remove limit to show all appointments
-  const tableData = processAppointmentsForTable(appointments, appointments.length);
+  const tableData = processAppointmentsForTable(filteredAppointments, filteredAppointments.length);
   console.log('Processed table data:', tableData?.length || 0);
 
   // State for edit modal
@@ -107,18 +122,25 @@ const AppointmentsSection = ({ appointments = [], onRowPress, onAppointmentUpdat
       setIsLoading(true);
       
       const updateData = {
-        scheduled_date: editForm.scheduled_date,
-        scheduled_time: editForm.scheduled_time,
-        service_name: editForm.service_name,
-        service_category: editForm.service_category,
-        service_price: parseFloat(editForm.service_price) || 0,
-        status: editForm.status
+        scheduled_date: editForm.scheduled_date?.trim() || null,
+        scheduled_time: editForm.scheduled_time?.trim() || null,
+        service_name: editForm.service_name?.trim() || null,
+        service_category: editForm.service_category?.trim() || null,
+        service_price: editForm.service_price ? parseFloat(editForm.service_price) : null,
+        status: editForm.status?.trim() || null
       };
 
-      const { error } = await supabase
+      let updateQuery = supabase
         .from('appointments')
         .update(updateData)
         .eq('id', editingAppointment.appointment_id);
+      
+      // Add business_id filter for security if provided
+      if (businessId) {
+        updateQuery = updateQuery.eq('business_id', businessId);
+      }
+
+      const { error } = await updateQuery;
 
       if (error) throw error;
 
@@ -140,7 +162,7 @@ const AppointmentsSection = ({ appointments = [], onRowPress, onAppointmentUpdat
 
   const renderTableData = () => {
     return tableData.map(({ key, data }, index) => {
-      const appointment = appointments[index];
+      const appointment = filteredAppointments[index];
       return {
         key,
         data: [

@@ -15,7 +15,12 @@ const formatTimestamp = (value) => {
   return date.toLocaleString();
 };
 
-const FAQsSection = ({ faqs = [], onFAQUpdate }) => {
+const FAQsSection = ({ faqs = [], onFAQUpdate, businessId }) => {
+  // Filter FAQs by business_id if provided
+  const filteredFaqs = businessId 
+    ? faqs.filter(faq => faq.business_id === businessId)
+    : faqs;
+  
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingFAQ, setEditingFAQ] = useState(null);
   const [editForm, setEditForm] = useState({
@@ -34,7 +39,7 @@ const FAQsSection = ({ faqs = [], onFAQUpdate }) => {
 
   const tableRows = useMemo(
     () =>
-      faqs.map((faq) => ({
+      filteredFaqs.map((faq) => ({
         key: `faq-${faq.faq_id}`,
         faq,
         cells: [
@@ -51,7 +56,7 @@ const FAQsSection = ({ faqs = [], onFAQUpdate }) => {
           </View>,
         ],
       })),
-    [faqs]
+    [filteredFaqs]
   );
 
   const showSnackbar = (message, type = 'success') => {
@@ -104,7 +109,17 @@ const FAQsSection = ({ faqs = [], onFAQUpdate }) => {
         updated_at: new Date().toISOString(),
       };
 
-      const { error } = await supabase.from('faqs').update(updatePayload).eq('faq_id', editingFAQ.faq_id);
+      let updateQuery = supabase
+        .from('faqs')
+        .update(updatePayload)
+        .eq('faq_id', editingFAQ.faq_id);
+      
+      // Add business_id filter for security if provided
+      if (businessId) {
+        updateQuery = updateQuery.eq('business_id', businessId);
+      }
+
+      const { error } = await updateQuery;
 
       if (error) throw error;
 

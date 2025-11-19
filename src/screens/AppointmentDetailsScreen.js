@@ -8,6 +8,8 @@ import { chatService } from '../services/chatService';
 import { supabase } from '../config/supabase';
 
 const AppointmentDetailsScreen = ({ appointment, chatHistory = [], navigation, route, tenantContext: tenantContextProp }) => {
+  // Extract business ID from appointment (appointment_details view includes business_id)
+  const businessId = appointment?.business_id || null;
   
   // State for chat functionality
   const [chatMessages, setChatMessages] = useState(chatHistory);
@@ -51,7 +53,7 @@ const AppointmentDetailsScreen = ({ appointment, chatHistory = [], navigation, r
     
     try {
       setIsLoading(true);
-      const messages = await chatService.getChatHistory(appointment.sender_id);
+      const messages = await chatService.getChatHistory(appointment.sender_id, businessId);
       setChatMessages(messages);
     } catch (error) {
       console.error('Error refreshing chat history:', error);
@@ -59,7 +61,7 @@ const AppointmentDetailsScreen = ({ appointment, chatHistory = [], navigation, r
     } finally {
       setIsLoading(false);
     }
-  }, [appointment?.sender_id]);
+  }, [appointment?.sender_id, businessId]);
 
   // Fetch chat history on mount
   useEffect(() => {
@@ -82,7 +84,7 @@ const AppointmentDetailsScreen = ({ appointment, chatHistory = [], navigation, r
   const updateBotStatus = async (newValue) => {
     try {
       setIsUpdatingBotStatus(true);
-      await chatService.updatePatientBotStatus(appointment.sender_id, newValue);
+      await chatService.updatePatientBotStatus(appointment.sender_id, newValue, businessId);
       setIsAIAgentActive(newValue);
       
       // Show success message
@@ -247,12 +249,12 @@ const AppointmentDetailsScreen = ({ appointment, chatHistory = [], navigation, r
       setIsUpdatingAppointment(true);
       
       const updateData = {
-        scheduled_date: editForm.scheduled_date,
-        scheduled_time: editForm.scheduled_time,
-        service_name: editForm.service_name,
-        service_category: editForm.service_category,
-        service_price: parseFloat(editForm.service_price) || 0,
-        status: editForm.status
+        scheduled_date: editForm.scheduled_date?.trim() || null,
+        scheduled_time: editForm.scheduled_time?.trim() || null,
+        service_name: editForm.service_name?.trim() || null,
+        service_category: editForm.service_category?.trim() || null,
+        service_price: editForm.service_price ? parseFloat(editForm.service_price) : null,
+        status: editForm.status?.trim() || null
       };
 
       const { error } = await supabase

@@ -24,9 +24,13 @@ import { homeScreenStyles } from '../styles/HomeScreenStyles';
  * HomeScreen component - Main dashboard screen displaying key metrics and data
  * @param {Object} props - Component props
  * @param {Object} props.navigation - Navigation object
+ * @param {Object} props.currentUser - Current logged in user object with business ID
  * @returns {JSX.Element} HomeScreen component
  */
-const HomeScreen = ({ navigation }) => {
+const HomeScreen = ({ navigation, currentUser }) => {
+  // Extract business ID from current user (user.id is the business_id)
+  const businessId = currentUser?.id || null;
+  
   const {
     viewState,
     activeTab,
@@ -36,7 +40,7 @@ const HomeScreen = ({ navigation }) => {
     handleMenuOpen,
     handleMenuClose,
     handleMenuAction
-  } = useHomeScreen();
+  } = useHomeScreen(businessId);
 
   return (
     <ScrollView style={homeScreenStyles.container} showsVerticalScrollIndicator={true}>
@@ -120,10 +124,11 @@ const HomeScreen = ({ navigation }) => {
           onMenuOpen={handleMenuOpen}
           onMenuClose={handleMenuClose}
           onMenuAction={handleMenuAction}
+          businessId={businessId}
           onRowPress={async (appointment) => {
             if (!navigation) return;
             try {
-              const chatHistory = await chatService.getChatHistory(appointment.sender_id);
+              const chatHistory = await chatService.getChatHistory(appointment.sender_id, businessId);
               navigation.navigate('AppointmentDetailsScreen', { appointment, chatHistory });
             } catch (error) {
               navigation.navigate('AppointmentDetailsScreen', { appointment, chatHistory: [] });

@@ -8,7 +8,9 @@ import { Layout } from '../constants/Layout';
 import AppointmentsSection from '../components/sections/AppointmentsSection';
 import { chatService } from '../services/chatService';
 
-const AppointmentScreen = ({ navigation }) => {
+const AppointmentScreen = ({ navigation, currentUser }) => {
+  // Extract business ID from current user (user.id is the business_id)
+  const businessId = currentUser?.id || null;
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -110,15 +112,24 @@ const AppointmentScreen = ({ navigation }) => {
     setLoading(true);
     
     try {
-      // Use the same pattern as HomeViewModel.js - fetch from appointment_details view
+      // Fetch from appointment_details view which includes patient and appointment fields
+      // The view includes: patient fields (id as patient_id, name, age, gender, phone, email, location, sender_id, platform, isbotactive, business_id)
+      // and appointment fields (id as appointment_id, service_name, service_category, service_price, scheduled_date, scheduled_time, status, iscomplete, created_at as appointment_created_at)
       const selectColumns = 
-        'appointment_id, patient_id, sender_id, name, email, phone, gender, age, profilepicture, service_name, service_category, service_price, status, scheduled_date, scheduled_time, appointment_created_at';
+        'appointment_id, patient_id, sender_id, name, email, phone, gender, age, service_name, service_category, service_price, status, scheduled_date, scheduled_time, appointment_created_at, business_id, isbotactive, location, platform';
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('appointment_details')
         .select(selectColumns)
         .order('scheduled_date', { ascending: true })
         .order('scheduled_time', { ascending: true });
+      
+      // Filter by business_id if provided
+      if (businessId) {
+        query = query.eq('business_id', businessId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       
@@ -151,7 +162,7 @@ const AppointmentScreen = ({ navigation }) => {
     if (navigation) {
       try {
         // Fetch chat history for this appointment
-        const chatHistory = await chatService.getChatHistory(appointment.sender_id);
+        const chatHistory = await chatService.getChatHistory(appointment.sender_id, businessId);
         
         // Pass both appointment and chat history to details screen
         navigation.navigate('AppointmentDetailsScreen', { 
@@ -270,6 +281,7 @@ const AppointmentScreen = ({ navigation }) => {
         appointments={appointments} 
         onRowPress={handleRowPress}
         onAppointmentUpdate={fetchAppointments}
+        businessId={businessId}
       />
     </View>
   );
