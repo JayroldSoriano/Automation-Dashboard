@@ -1,12 +1,21 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
+import StatusBadge from '../StatusBadge';
 
-const PATIENT_TABLE_COLUMNS = ['PROFILE', 'NAME', 'AGE', 'GENDER', 'PHONE', 'EMAIL', 'LOCATION', 'PLATFORM', 'JOINED'];
-
-const PatientSection = ({ patients = [], onRowPress }) => {
+const PatientSection = ({ patients = [], onRowPress, showBusiness = false, businessMap = {} }) => {
   console.log('PatientSection received patients:', patients?.length || 0);
+
+  // Determine columns based on whether business info should be shown
+  const PATIENT_TABLE_COLUMNS = useMemo(() => {
+    const baseColumns = ['NAME', 'AGE', 'GENDER', 'PHONE', 'EMAIL', 'LOCATION', 'PLATFORM', 'STATUS', 'JOINED'];
+    if (showBusiness) {
+      // Insert BUSINESS column after NAME
+      baseColumns.splice(1, 0, 'BUSINESS');
+    }
+    return baseColumns;
+  }, [showBusiness]);
 
   const formatDate = (dateString) => {
     if (!dateString) return '—';
@@ -18,34 +27,55 @@ const PatientSection = ({ patients = [], onRowPress }) => {
     });
   };
 
+  const getBusinessName = (businessId) => {
+    if (!businessId || !businessMap[businessId]) return '—';
+    return businessMap[businessId].business_name || businessMap[businessId].email || '—';
+  };
+
 
   const renderTableData = () => {
     return patients.map((patient, index) => {
-      const patientKey = `${patient.id || patient.name}-${index}`;
+      const patientKey = `${patient.id || patient.sender_id || patient.name}-${index}`;
+      
+      // Build data array based on columns
+      const data = [
+        <Text style={styles.cellPrimary}>{patient.name || '—'}</Text>, // Name
+      ];
+
+      // Add Business column if showBusiness is true
+      if (showBusiness) {
+        data.push(
+          <Text style={styles.cellSecondary} numberOfLines={1}>
+            {getBusinessName(patient.business_id)}
+          </Text> // Business
+        );
+      }
+
+      // Add remaining columns
+      data.push(
+        <Text style={styles.cellSecondary}>{patient.age || '—'}</Text>, // Age
+        <Text style={styles.cellSecondary}>{patient.gender || '—'}</Text>, // Gender
+        <Text style={styles.cellSecondary}>{patient.phone || '—'}</Text>, // Phone
+        <Text style={styles.cellDescription} numberOfLines={1}>{patient.email || '—'}</Text>, // Email
+        <Text style={styles.cellSecondary}>{patient.location || '—'}</Text>, // Location
+        <Text style={styles.cellSecondary}>{patient.platform || '—'}</Text>, // Platform
+        // Appointment Status
+        <View style={styles.statusContainer}>
+          {patient.appointment_status ? (
+            <StatusBadge 
+              status={patient.appointment_status} 
+              label={patient.appointment_status ? patient.appointment_status.charAt(0).toUpperCase() + patient.appointment_status.slice(1) : '—'} 
+            />
+          ) : (
+            <Text style={styles.statusText}>—</Text>
+          )}
+        </View>, // Status
+        <Text style={styles.cellDate}>{formatDate(patient.created_at)}</Text>, // Joined Date
+      );
       
       return {
         key: patientKey,
-        data: [
-          // Profile Picture
-          patient.profilepicture ? (
-            <Image 
-              source={{ uri: patient.profilepicture }} 
-              style={styles.profileImage}
-            />
-          ) : (
-            <View style={styles.profilePlaceholder}>
-              <MaterialIcons name="person" size={20} color={Colors.textSecondary} />
-            </View>
-          ),
-          <Text style={styles.cellPrimary}>{patient.name || '—'}</Text>, // Name
-          <Text style={styles.cellSecondary}>{patient.age || '—'}</Text>, // Age
-          <Text style={styles.cellSecondary}>{patient.gender || '—'}</Text>, // Gender
-          <Text style={styles.cellSecondary}>{patient.phone || '—'}</Text>, // Phone
-          <Text style={styles.cellDescription} numberOfLines={1}>{patient.email || '—'}</Text>, // Email
-          <Text style={styles.cellSecondary}>{patient.location || '—'}</Text>, // Location
-          <Text style={styles.cellSecondary}>{patient.platform || '—'}</Text>, // Platform
-          <Text style={styles.cellDate}>{formatDate(patient.created_at)}</Text>, // Joined Date
-        ],
+        data,
         patient
       };
     });
@@ -57,19 +87,21 @@ const PatientSection = ({ patients = [], onRowPress }) => {
       <View style={styles.tableHeader}>
         {PATIENT_TABLE_COLUMNS.map((col, colIndex) => {
           let cellStyle = styles.cell;
-          if (colIndex === 0) cellStyle = [styles.cell, styles.profileCell]; // Profile
-          else if (colIndex === 1) cellStyle = [styles.cell, styles.nameCell]; // Name
-          else if (colIndex === 2) cellStyle = [styles.cell, styles.ageCell]; // Age
-          else if (colIndex === 3) cellStyle = [styles.cell, styles.genderCell]; // Gender
-          else if (colIndex === 4) cellStyle = [styles.cell, styles.phoneCell]; // Phone
-          else if (colIndex === 5) cellStyle = [styles.cell, styles.emailCell]; // Email
-          else if (colIndex === 6) cellStyle = [styles.cell, styles.locationCell]; // Location
-          else if (colIndex === 7) cellStyle = [styles.cell, styles.platformCell]; // Platform
-          else if (colIndex === 8) cellStyle = [styles.cell, styles.joinedCell]; // Joined
+          // Dynamic column styling based on column name
+          if (col === 'NAME') cellStyle = [styles.cell, styles.nameCell];
+          else if (col === 'BUSINESS') cellStyle = [styles.cell, styles.businessCell];
+          else if (col === 'AGE') cellStyle = [styles.cell, styles.ageCell];
+          else if (col === 'GENDER') cellStyle = [styles.cell, styles.genderCell];
+          else if (col === 'PHONE') cellStyle = [styles.cell, styles.phoneCell];
+          else if (col === 'EMAIL') cellStyle = [styles.cell, styles.emailCell];
+          else if (col === 'LOCATION') cellStyle = [styles.cell, styles.locationCell];
+          else if (col === 'PLATFORM') cellStyle = [styles.cell, styles.platformCell];
+          else if (col === 'STATUS') cellStyle = [styles.cell, styles.statusCell];
+          else if (col === 'JOINED') cellStyle = [styles.cell, styles.joinedCell];
           
           return (
             <View key={col} style={cellStyle}>
-              <Text style={styles.headerText}>{col.toUpperCase()}</Text>
+              <Text style={styles.headerText}>{col}</Text>
             </View>
           );
         })}
@@ -92,16 +124,19 @@ const PatientSection = ({ patients = [], onRowPress }) => {
             activeOpacity={0.7}
           >
             {rowData.data.map((cell, colIndex) => {
+              const colName = PATIENT_TABLE_COLUMNS[colIndex];
               let cellStyle = styles.cell;
-              if (colIndex === 0) cellStyle = [styles.cell, styles.profileCell]; // Profile
-              else if (colIndex === 1) cellStyle = [styles.cell, styles.nameCell]; // Name
-              else if (colIndex === 2) cellStyle = [styles.cell, styles.ageCell]; // Age
-              else if (colIndex === 3) cellStyle = [styles.cell, styles.genderCell]; // Gender
-              else if (colIndex === 4) cellStyle = [styles.cell, styles.phoneCell]; // Phone
-              else if (colIndex === 5) cellStyle = [styles.cell, styles.emailCell]; // Email
-              else if (colIndex === 6) cellStyle = [styles.cell, styles.locationCell]; // Location
-              else if (colIndex === 7) cellStyle = [styles.cell, styles.platformCell]; // Platform
-              else if (colIndex === 8) cellStyle = [styles.cell, styles.joinedCell]; // Joined
+              // Match cell styling to column name
+              if (colName === 'NAME') cellStyle = [styles.cell, styles.nameCell];
+              else if (colName === 'BUSINESS') cellStyle = [styles.cell, styles.businessCell];
+              else if (colName === 'AGE') cellStyle = [styles.cell, styles.ageCell];
+              else if (colName === 'GENDER') cellStyle = [styles.cell, styles.genderCell];
+              else if (colName === 'PHONE') cellStyle = [styles.cell, styles.phoneCell];
+              else if (colName === 'EMAIL') cellStyle = [styles.cell, styles.emailCell];
+              else if (colName === 'LOCATION') cellStyle = [styles.cell, styles.locationCell];
+              else if (colName === 'PLATFORM') cellStyle = [styles.cell, styles.platformCell];
+              else if (colName === 'STATUS') cellStyle = [styles.cell, styles.statusCell];
+              else if (colName === 'JOINED') cellStyle = [styles.cell, styles.joinedCell];
               
               return (
                 <View key={`cell-${colIndex}`} style={cellStyle}>
@@ -155,11 +190,11 @@ const styles = {
   cell: {
     flex: 1,
   },
-  profileCell: {
-    flex: 0.8, // Profile picture gets less space
-  },
   nameCell: {
     flex: 1.5, // Name gets more space
+  },
+  businessCell: {
+    flex: 1.3, // Business name gets more space
   },
   ageCell: {
     flex: 0.6, // Age gets less space
@@ -178,6 +213,9 @@ const styles = {
   },
   platformCell: {
     flex: 1, // Platform gets standard space
+  },
+  statusCell: {
+    flex: 1, // Status gets standard space
   },
   joinedCell: {
     flex: 1, // Joined date gets standard space
@@ -203,18 +241,15 @@ const styles = {
     fontSize: 12,
     fontWeight: '500',
   },
-  profileImage: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-  },
-  profilePlaceholder: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    alignItems: 'center',
+  statusContainer: {
+    flex: 1,
+    alignItems: 'flex-start',
     justifyContent: 'center',
+  },
+  statusText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontWeight: '500',
   },
 };
 

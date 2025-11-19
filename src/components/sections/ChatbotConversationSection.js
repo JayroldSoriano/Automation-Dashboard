@@ -1,12 +1,25 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 
-const CHATBOT_CONVERSATION_COLUMNS = ['SESSION ID', 'PATIENT NAME', 'LAST MESSAGE', 'LAST AI REPLY', 'TIMESTAMP'];
-
-const ChatbotConversationSection = ({ conversations = [], onRowPress }) => {
+const ChatbotConversationSection = ({ conversations = [], onRowPress, showBusiness = false, businessMap = {} }) => {
   console.log('ChatbotConversationSection received conversations:', conversations?.length || 0);
+
+  // Determine columns based on whether business info should be shown
+  const CHATBOT_CONVERSATION_COLUMNS = React.useMemo(() => {
+    const baseColumns = ['SESSION ID', 'PATIENT NAME', 'LAST MESSAGE', 'LAST AI REPLY', 'TIMESTAMP'];
+    if (showBusiness) {
+      // Insert BUSINESS column after PATIENT NAME
+      baseColumns.splice(2, 0, 'BUSINESS');
+    }
+    return baseColumns;
+  }, [showBusiness]);
+
+  const getBusinessName = (businessId) => {
+    if (!businessId || !businessMap[businessId]) return '—';
+    return businessMap[businessId].business_name || businessMap[businessId].email || '—';
+  };
 
   const formatDate = (dateString) => {
     if (!dateString) return '—';
@@ -24,15 +37,31 @@ const ChatbotConversationSection = ({ conversations = [], onRowPress }) => {
     return conversations.map((conversation, index) => {
       const conversationKey = `${conversation.session_id || conversation.id}-${index}`;
       
+      // Build data array based on columns
+      const data = [
+        <Text style={styles.cellSecondary}>{conversation.session_id || '—'}</Text>, // Session ID
+        <Text style={styles.cellPrimary}>{conversation.patient_name || '—'}</Text>, // Patient Name
+      ];
+
+      // Add Business column if showBusiness is true
+      if (showBusiness) {
+        data.push(
+          <Text style={styles.cellSecondary} numberOfLines={1}>
+            {getBusinessName(conversation.business_id)}
+          </Text> // Business
+        );
+      }
+
+      // Add remaining columns
+      data.push(
+        <Text style={styles.cellDescription} numberOfLines={2}>{conversation.last_message || '—'}</Text>, // Last Message
+        <Text style={styles.cellDescription} numberOfLines={2}>{conversation.last_ai_reply || '—'}</Text>, // Last AI Reply
+        <Text style={styles.cellDate}>{formatDate(conversation.timestamp)}</Text>, // Timestamp
+      );
+      
       return {
         key: conversationKey,
-        data: [
-          <Text style={styles.cellSecondary}>{conversation.session_id || '—'}</Text>, // Session ID
-          <Text style={styles.cellPrimary}>{conversation.patient_name || '—'}</Text>, // Patient Name
-          <Text style={styles.cellDescription} numberOfLines={2}>{conversation.last_message || '—'}</Text>, // Last Message
-          <Text style={styles.cellDescription} numberOfLines={2}>{conversation.last_ai_reply || '—'}</Text>, // Last AI Reply
-          <Text style={styles.cellDate}>{formatDate(conversation.timestamp)}</Text>, // Timestamp
-        ],
+        data,
         conversation
       };
     });
@@ -44,15 +73,17 @@ const ChatbotConversationSection = ({ conversations = [], onRowPress }) => {
       <View style={styles.tableHeader}>
         {CHATBOT_CONVERSATION_COLUMNS.map((col, colIndex) => {
           let cellStyle = styles.cell;
-          if (colIndex === 0) cellStyle = [styles.cell, styles.sessionIdCell]; // Session ID
-          else if (colIndex === 1) cellStyle = [styles.cell, styles.patientNameCell]; // Patient Name
-          else if (colIndex === 2) cellStyle = [styles.cell, styles.lastMessageCell]; // Last Message
-          else if (colIndex === 3) cellStyle = [styles.cell, styles.lastAiReplyCell]; // Last AI Reply
-          else if (colIndex === 4) cellStyle = [styles.cell, styles.timestampCell]; // Timestamp
+          // Dynamic column styling based on column name
+          if (col === 'SESSION ID') cellStyle = [styles.cell, styles.sessionIdCell];
+          else if (col === 'PATIENT NAME') cellStyle = [styles.cell, styles.patientNameCell];
+          else if (col === 'BUSINESS') cellStyle = [styles.cell, styles.businessCell];
+          else if (col === 'LAST MESSAGE') cellStyle = [styles.cell, styles.lastMessageCell];
+          else if (col === 'LAST AI REPLY') cellStyle = [styles.cell, styles.lastAiReplyCell];
+          else if (col === 'TIMESTAMP') cellStyle = [styles.cell, styles.timestampCell];
           
           return (
             <View key={col} style={cellStyle}>
-              <Text style={styles.headerText}>{col.toUpperCase()}</Text>
+              <Text style={styles.headerText}>{col}</Text>
             </View>
           );
         })}
@@ -75,12 +106,15 @@ const ChatbotConversationSection = ({ conversations = [], onRowPress }) => {
             activeOpacity={0.7}
           >
             {rowData.data.map((cell, colIndex) => {
+              const colName = CHATBOT_CONVERSATION_COLUMNS[colIndex];
               let cellStyle = styles.cell;
-              if (colIndex === 0) cellStyle = [styles.cell, styles.sessionIdCell]; // Session ID
-              else if (colIndex === 1) cellStyle = [styles.cell, styles.patientNameCell]; // Patient Name
-              else if (colIndex === 2) cellStyle = [styles.cell, styles.lastMessageCell]; // Last Message
-              else if (colIndex === 3) cellStyle = [styles.cell, styles.lastAiReplyCell]; // Last AI Reply
-              else if (colIndex === 4) cellStyle = [styles.cell, styles.timestampCell]; // Timestamp
+              // Match cell styling to column name
+              if (colName === 'SESSION ID') cellStyle = [styles.cell, styles.sessionIdCell];
+              else if (colName === 'PATIENT NAME') cellStyle = [styles.cell, styles.patientNameCell];
+              else if (colName === 'BUSINESS') cellStyle = [styles.cell, styles.businessCell];
+              else if (colName === 'LAST MESSAGE') cellStyle = [styles.cell, styles.lastMessageCell];
+              else if (colName === 'LAST AI REPLY') cellStyle = [styles.cell, styles.lastAiReplyCell];
+              else if (colName === 'TIMESTAMP') cellStyle = [styles.cell, styles.timestampCell];
               
               return (
                 <View key={`cell-${colIndex}`} style={cellStyle}>
@@ -139,6 +173,9 @@ const styles = {
   },
   patientNameCell: {
     flex: 1.5, // Patient Name gets more space
+  },
+  businessCell: {
+    flex: 1.3, // Business name gets more space
   },
   lastMessageCell: {
     flex: 2, // Last Message gets the most space

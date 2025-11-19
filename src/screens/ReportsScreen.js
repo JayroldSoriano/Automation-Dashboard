@@ -6,19 +6,24 @@ import { Colors } from '../constants/Colors';
 import { Layout } from '../constants/Layout';
 import PatientSection from '../components/sections/PatientSection';
 import ChatbotConversationSection from '../components/sections/ChatbotConversationSection';
-import CircularSegmentedChart from '../components/CircularSegmentedChart';
+import DemographicsSection from '../components/sections/DemographicsSection';
+import PlatformSection from '../components/sections/PlatformSection';
+import LocationSection from '../components/sections/LocationSection';
 import VerticalBarChart from '../components/VerticalBarChart';
-import HorizontalSegmentedBar from '../components/HorizontalSegmentedBar';
-import StatCard from '../components/StatCard';
 import { chatService } from '../services/chatService';
+import { processAgeDistribution, processGenderDistribution, processPlatformDistribution, processLocationDistribution, getTopPlatform } from '../utils/dataUtils';
 
 const ReportsScreen = ({ navigation, currentUser }) => {
   // Extract business ID from current user (user.id is the business_id)
-  const businessId = currentUser?.id || null;
+  // For admins, don't filter by business_id to show all patients from all tenants
+  const isAdmin = currentUser?.role === 'admin';
+  const businessId = isAdmin ? null : (currentUser?.id || null);
   const [activeTab, setActiveTab] = useState('patient');
   const [patients, setPatients] = useState([]);
   const [conversations, setConversations] = useState([]);
+  const [chatHistory, setChatHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [businessMap, setBusinessMap] = useState({});
 
   useEffect(() => {
     const fetchData = async () => {
@@ -28,11 +33,12 @@ const ReportsScreen = ({ navigation, currentUser }) => {
         // Fetch patients from patients table
         let patientsQuery = supabase
           .from('patients')
-          .select('id, name, age, gender, phone, email, location, created_at, sender_id, last_agent, platform, business_id')
+          .select('id, name, age, gender, phone, email, location, created_at, sender_id, platform, business_id, isbotactive')
           .order('created_at', { ascending: false });
         
-        // Filter by business_id if provided
-        if (businessId) {
+        // Filter by business_id only if user is not an admin
+        // For admins, show all patients from all tenants
+        if (!isAdmin && businessId) {
           patientsQuery = patientsQuery.eq('business_id', businessId);
         }
         
@@ -40,125 +46,147 @@ const ReportsScreen = ({ navigation, currentUser }) => {
 
         if (patientsError) throw patientsError;
         
-        console.log('Fetched patients count:', patientsData.length);
-        setPatients(patientsData);
+        console.log('Fetched patients count:', patientsData.length, isAdmin ? '(All tenants)' : `(Business: ${businessId})`);
+
+        // Fetch latest appointment status for each patient
+        const patientIds = patientsData.map(p => p.id).filter(Boolean);
+        const appointmentStatusMap = {};
+        
+        if (patientIds.length > 0) {
+          // Fetch latest appointment for each patient
+          // Using appointment_details view to get patient_id and status
+          let appointmentsQuery = supabase
+            .from('appointment_details')
+            .select('patient_id, status, appointment_created_at')
+            .in('patient_id', patientIds)
+            .order('appointment_created_at', { ascending: false });
+          
+          // Filter by business_id if not admin
+          if (!isAdmin && businessId) {
+            appointmentsQuery = appointmentsQuery.eq('business_id', businessId);
+          }
+          
+          const { data: appointmentsData, error: appointmentsError } = await appointmentsQuery;
+          
+          if (!appointmentsError && appointmentsData) {
+            // Group by patient_id and get the latest status
+            appointmentsData.forEach(apt => {
+              if (apt.patient_id && !appointmentStatusMap[apt.patient_id]) {
+                appointmentStatusMap[apt.patient_id] = apt.status || 'pending';
+              }
+            });
+          }
+        }
+
+        // Enrich patients with appointment status
+        const enrichedPatients = patientsData.map(patient => ({
+          ...patient,
+          appointment_status: appointmentStatusMap[patient.id] || null
+        }));
+
+        setPatients(enrichedPatients);
+
+        // If admin, fetch business names for all unique business_ids
+        if (isAdmin && patientsData && patientsData.length > 0) {
+          const uniqueBusinessIds = [...new Set(patientsData.map(p => p.business_id).filter(Boolean))];
+          if (uniqueBusinessIds.length > 0) {
+            const { data: businessesData, error: businessesError } = await supabase
+              .from('users')
+              .select('id, business_name, email')
+              .in('id', uniqueBusinessIds);
+            
+            if (!businessesError && businessesData) {
+              const map = {};
+              businessesData.forEach(business => {
+                map[business.id] = business;
+              });
+              setBusinessMap(map);
+            }
+          }
+        }
 
         // Fetch chatbot conversations from chatService
-        const conversationsData = await chatService.getConversations(businessId, 50);
-        const mockConversations = [
-          {
-            session_id: 'SESS-001',
-            patient_name: 'John Doe',
-            last_message: 'I need to schedule an appointment for next week',
-            last_ai_reply: 'I can help you schedule an appointment. What day works best for you?',
-            timestamp: new Date().toISOString()
-          },
-          {
-            session_id: 'SESS-002',
-            patient_name: 'Jane Smith',
-            last_message: 'What are your available time slots?',
-            last_ai_reply: 'We have slots available at 9 AM, 2 PM, and 4 PM. Which would you prefer?',
-            timestamp: new Date(Date.now() - 3600000).toISOString()
-          },
-          {
-            session_id: 'SESS-003',
-            patient_name: 'Mike Johnson',
-            last_message: 'I want to cancel my appointment',
-            last_ai_reply: 'I can help you cancel your appointment. What is your appointment ID?',
-            timestamp: new Date(Date.now() - 7200000).toISOString()
-          },
-          {
-            session_id: 'SESS-004',
-            patient_name: 'Sarah Wilson',
-            last_message: 'How much does a cleaning cost?',
-            last_ai_reply: 'Our basic cleaning starts at $120. Would you like to schedule a consultation?',
-            timestamp: new Date(Date.now() - 10800000).toISOString()
-          },
-          {
-            session_id: 'SESS-005',
-            patient_name: 'David Brown',
-            last_message: 'I have a toothache, is this an emergency?',
-            last_ai_reply: 'Toothaches can be serious. I recommend calling our emergency line at (555) 123-4567.',
-            timestamp: new Date(Date.now() - 14400000).toISOString()
-          },
-          {
-            session_id: 'SESS-006',
-            patient_name: 'Lisa Garcia',
-            last_message: 'Can I reschedule my appointment from tomorrow to next week?',
-            last_ai_reply: 'Of course! I can help you reschedule. What day next week works for you?',
-            timestamp: new Date(Date.now() - 18000000).toISOString()
-          },
-          {
-            session_id: 'SESS-007',
-            patient_name: 'Robert Taylor',
-            last_message: 'Do you accept insurance?',
-            last_ai_reply: 'Yes, we accept most major insurance plans. What insurance do you have?',
-            timestamp: new Date(Date.now() - 21600000).toISOString()
-          },
-          {
-            session_id: 'SESS-008',
-            patient_name: 'Maria Rodriguez',
-            last_message: 'I need a root canal, how long does it take?',
-            last_ai_reply: 'Root canals typically take 1-2 hours. Would you like to schedule an evaluation first?',
-            timestamp: new Date(Date.now() - 25200000).toISOString()
-          },
-          {
-            session_id: 'SESS-009',
-            patient_name: 'James Anderson',
-            last_message: 'What are your office hours?',
-            last_ai_reply: 'We\'re open Monday-Friday 8AM-6PM and Saturday 9AM-2PM. Closed Sundays.',
-            timestamp: new Date(Date.now() - 28800000).toISOString()
-          },
-          {
-            session_id: 'SESS-010',
-            patient_name: 'Emily Davis',
-            last_message: 'I lost my filling, what should I do?',
-            last_ai_reply: 'Please call us immediately at (555) 123-4567. Lost fillings need prompt attention.',
-            timestamp: new Date(Date.now() - 32400000).toISOString()
-          },
-          {
-            session_id: 'SESS-011',
-            patient_name: 'Michael White',
-            last_message: 'Can I get a quote for teeth whitening?',
-            last_ai_reply: 'Our professional whitening starts at $300. Would you like to schedule a consultation?',
-            timestamp: new Date(Date.now() - 36000000).toISOString()
-          },
-          {
-            session_id: 'SESS-012',
-            patient_name: 'Jennifer Lee',
-            last_message: 'Do you have any appointments available today?',
-            last_ai_reply: 'Let me check our schedule. We have a 2 PM slot available. Would that work?',
-            timestamp: new Date(Date.now() - 39600000).toISOString()
-          },
-          {
-            session_id: 'SESS-013',
-            patient_name: 'Christopher Moore',
-            last_message: 'I need to update my contact information',
-            last_ai_reply: 'I can help you update your information. What\'s your new phone number?',
-            timestamp: new Date(Date.now() - 43200000).toISOString()
-          },
-          {
-            session_id: 'SESS-014',
-            patient_name: 'Amanda Clark',
-            last_message: 'How often should I come for cleanings?',
-            last_ai_reply: 'We recommend cleanings every 6 months. When was your last cleaning?',
-            timestamp: new Date(Date.now() - 46800000).toISOString()
-          },
-          {
-            session_id: 'SESS-015',
-            patient_name: 'Daniel Lewis',
-            last_message: 'I have braces, do you work with orthodontists?',
-            last_ai_reply: 'Yes, we coordinate with orthodontists. We can provide general dental care during your treatment.',
-            timestamp: new Date(Date.now() - 50400000).toISOString()
-          }
-        ];
-
+        // For admins, pass null to get all conversations from all tenants
+        const conversationsData = await chatService.getConversations(isAdmin ? null : businessId, 50);
         console.log('Fetched conversations count:', conversationsData.length);
-        // Use real data if available, otherwise fallback to mock data
-        if (conversationsData && conversationsData.length > 0) {
-          setConversations(conversationsData);
+
+        // Enrich conversations with actual patient names from patients table
+        // This ensures we get the most up-to-date patient names
+        const senderIds = conversationsData.map(c => c.sender_id).filter(Boolean);
+        let enrichedConversations = conversationsData;
+        
+        if (senderIds.length > 0) {
+          let patientsQuery = supabase
+            .from('patients')
+            .select('sender_id, name, id')
+            .in('sender_id', senderIds);
+          
+          // For admins, don't filter by business_id to get all patients
+          // For regular users, filter by business_id
+          if (!isAdmin && businessId) {
+            patientsQuery = patientsQuery.eq('business_id', businessId);
+          }
+          
+          const { data: patientsData, error: patientsError } = await patientsQuery;
+          
+          if (!patientsError && patientsData) {
+            // Create a map of sender_id to patient name
+            const patientNameMap = new Map();
+            patientsData.forEach(patient => {
+              if (patient.sender_id && patient.name) {
+                patientNameMap.set(patient.sender_id, patient.name);
+              }
+            });
+            
+            // Enrich conversations with actual patient names
+            enrichedConversations = conversationsData.map(conversation => ({
+              ...conversation,
+              patient_name: patientNameMap.get(conversation.sender_id) || conversation.patient_name || 'Unknown Patient'
+            }));
+          }
+        }
+        
+        setConversations(enrichedConversations || []);
+
+        // If admin, fetch business names for conversations
+        if (isAdmin && enrichedConversations && enrichedConversations.length > 0) {
+          const uniqueBusinessIds = [...new Set(enrichedConversations.map(c => c.business_id).filter(Boolean))];
+          if (uniqueBusinessIds.length > 0) {
+            // Merge with existing businessMap using functional update
+            const { data: businessesData, error: businessesError } = await supabase
+              .from('users')
+              .select('id, business_name, email')
+              .in('id', uniqueBusinessIds);
+            
+            if (!businessesError && businessesData) {
+              setBusinessMap(prevMap => {
+                const newMap = { ...prevMap };
+                businessesData.forEach(business => {
+                  newMap[business.id] = business;
+                });
+                return newMap;
+              });
+            }
+          }
+        }
+
+        // Fetch chat_history data for analytics
+        let chatHistoryQuery = supabase
+          .from('chat_history')
+          .select('id, sender_id, text, platform, role, created_at, business_id')
+          .order('created_at', { ascending: false });
+        
+        // Filter by business_id if not admin
+        if (!isAdmin && businessId) {
+          chatHistoryQuery = chatHistoryQuery.eq('business_id', businessId);
+        }
+        
+        const { data: chatHistoryData, error: chatHistoryError } = await chatHistoryQuery;
+        
+        if (!chatHistoryError && chatHistoryData) {
+          setChatHistory(chatHistoryData);
         } else {
-          setConversations(mockConversations);
+          setChatHistory([]);
         }
 
       } catch (err) {
@@ -171,7 +199,8 @@ const ReportsScreen = ({ navigation, currentUser }) => {
     };
 
     fetchData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
 
   const handleTabPress = (tab) => {
     setActiveTab(tab);
@@ -214,10 +243,13 @@ const ReportsScreen = ({ navigation, currentUser }) => {
     if (!patients || patients.length === 0) {
       return {
         totalPatients: 0,
-        platformDistribution: { data: [], labels: [], colors: [] },
-        genderDistribution: { data: [], labels: [], colors: [] },
-        ageDistribution: { data: [], labels: [], colors: [] },
-        monthlyGrowth: { data: [], labels: [], colors: [] }
+        platformDistribution: {},
+        genderDistribution: { Male: 0, Female: 0, Other: 0 },
+        ageDistribution: { '0-18': 0, '19-35': 0, '36-55': 0, '56+': 0 },
+        locationDistribution: {},
+        monthlyGrowth: { data: [], labels: [], colors: [] },
+        topPlatform: 'No Platforms',
+        topBusiness: 'No Business'
       };
     }
 
@@ -228,20 +260,14 @@ const ReportsScreen = ({ navigation, currentUser }) => {
       platformCounts[platform] = (platformCounts[platform] || 0) + 1;
     });
 
-    const platformData = Object.values(platformCounts);
-    const platformLabels = Object.keys(platformCounts);
-    const platformColors = ['#4A90E2', '#5BA0F2', '#6BB0FF', '#9CC9FF', '#AAD9FF'];
-
     // Gender distribution
-    const genderCounts = {};
+    const genderCounts = { Male: 0, Female: 0, Other: 0 };
     patients.forEach(patient => {
-      const gender = patient.gender || 'Unknown';
-      genderCounts[gender] = (genderCounts[gender] || 0) + 1;
+      const gender = (patient.gender || 'Other').trim();
+      if (gender.toLowerCase() === 'male') genderCounts.Male++;
+      else if (gender.toLowerCase() === 'female') genderCounts.Female++;
+      else genderCounts.Other++;
     });
-
-    const genderData = Object.values(genderCounts);
-    const genderLabels = Object.keys(genderCounts);
-    const genderColors = ['#FF6B6B', '#4ECDC4', '#45B7D1'];
 
     // Age distribution
     const ageGroups = { '0-18': 0, '19-35': 0, '36-55': 0, '56+': 0 };
@@ -253,9 +279,12 @@ const ReportsScreen = ({ navigation, currentUser }) => {
       else ageGroups['56+']++;
     });
 
-    const ageData = Object.values(ageGroups);
-    const ageLabels = Object.keys(ageGroups);
-    const ageColors = ['#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8'];
+    // Location distribution
+    const locationCounts = {};
+    patients.forEach(patient => {
+      const location = patient.location || 'Unknown';
+      locationCounts[location] = (locationCounts[location] || 0) + 1;
+    });
 
     // Monthly growth (last 6 months)
     const monthlyCounts = {};
@@ -277,12 +306,30 @@ const ReportsScreen = ({ navigation, currentUser }) => {
     });
     const monthlyColors = ['#FF9F43', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
 
+    // Top platform
+    const topPlatform = getTopPlatform(platformCounts);
+
+    // Top business (business with most patients)
+    const businessCounts = {};
+    patients.forEach(patient => {
+      if (patient.business_id) {
+        businessCounts[patient.business_id] = (businessCounts[patient.business_id] || 0) + 1;
+      }
+    });
+    const topBusinessId = Object.entries(businessCounts).sort(([,a], [,b]) => b - a)[0]?.[0];
+    const topBusiness = topBusinessId && businessMap[topBusinessId] 
+      ? (businessMap[topBusinessId].business_name || businessMap[topBusinessId].email || 'Unknown')
+      : 'No Business';
+
     return {
       totalPatients: patients.length,
-      platformDistribution: { data: platformData, labels: platformLabels, colors: platformColors },
-      genderDistribution: { data: genderData, labels: genderLabels, colors: genderColors },
-      ageDistribution: { data: ageData, labels: ageLabels, colors: ageColors },
-      monthlyGrowth: { data: monthlyData, labels: monthlyLabels, colors: monthlyColors }
+      platformDistribution: platformCounts,
+      genderDistribution: genderCounts,
+      ageDistribution: ageGroups,
+      locationDistribution: locationCounts,
+      monthlyGrowth: { data: monthlyData, labels: monthlyLabels, colors: monthlyColors },
+      topPlatform,
+      topBusiness
     };
   };
 
@@ -304,11 +351,15 @@ const ReportsScreen = ({ navigation, currentUser }) => {
         <PatientSection 
           patients={patients} 
           onRowPress={handlePatientPress}
+          showBusiness={isAdmin}
+          businessMap={businessMap}
         />
         
         {/* Patient Analytics Header with Filters */}
         <View style={styles.patientHeader}>
-          <Text style={styles.patientTitle}>Patient Analytics</Text>
+          <Text style={styles.patientTitle}>
+            {isAdmin ? 'Global Patient Analytics' : 'Patient Analytics'}
+          </Text>
           <View style={styles.filterContainer}>
             <View style={styles.filterWrapper}>
               <Ionicons name="calendar" size={16} color={Colors.textSecondary} style={styles.filterIcon} />
@@ -332,57 +383,156 @@ const ReportsScreen = ({ navigation, currentUser }) => {
           <View style={styles.patientSummaryCard}>
             <Text style={styles.patientSummaryCardTitle}>Total Patients</Text>
             <Text style={styles.patientSummaryCardValue}>{analyticsData.totalPatients}</Text>
-            <Text style={styles.patientSummaryCardChange}>+12% vs last month</Text>
+            <Text style={styles.patientSummaryCardChange}>Across all tenants</Text>
           </View>
           <View style={styles.patientSummaryCard}>
-            <Text style={styles.patientSummaryCardTitle}>New Patients</Text>
-            <Text style={styles.patientSummaryCardValue}>124</Text>
-            <Text style={styles.patientSummaryCardChange}>+8% vs last month</Text>
+            <Text style={styles.patientSummaryCardTitle}>Top Business</Text>
+            <Text style={styles.patientSummaryCardValue} numberOfLines={1}>
+              {analyticsData.topBusiness}
+            </Text>
+            <Text style={styles.patientSummaryCardChange}>Most patients</Text>
           </View>
           <View style={styles.patientSummaryCard}>
-            <Text style={styles.patientSummaryCardTitle}>Returning Patients</Text>
-            <Text style={styles.patientSummaryCardValue}>732</Text>
-            <Text style={styles.patientSummaryCardChange}>+10% vs last month</Text>
+            <Text style={styles.patientSummaryCardTitle}>Top Platforms</Text>
+            <Text style={styles.patientSummaryCardValue} numberOfLines={1}>
+              {analyticsData.topPlatform}
+            </Text>
+            <Text style={styles.patientSummaryCardChange}>Most used platform</Text>
           </View>
         </View>
 
-        {/* Charts Section */}
+        {/* Charts Section - Three columns in one row */}
         <View style={styles.patientChartsSection}>
-          {/* Patient Growth Chart */}
+          {/* Platform Usage */}
           <View style={styles.patientChartCard}>
-            <Text style={styles.patientChartCardTitle}>Patient Growth Over Time</Text>
-            <View style={styles.chartPlaceholder}>
-              <Ionicons name="trending-up" size={48} color={Colors.textSecondary} />
-              <Text style={styles.chartPlaceholderText}>Patient Growth Chart</Text>
-              <Text style={styles.chartPlaceholderSubtext}>Line chart showing patient growth trends</Text>
-            </View>
+            <Text style={styles.patientChartCardTitle}>Platform Usage</Text>
+            <PlatformSection platformDistribution={analyticsData.platformDistribution} />
           </View>
 
-          {/* Demographics Chart */}
+          {/* Demographics */}
           <View style={styles.patientChartCard}>
             <Text style={styles.patientChartCardTitle}>Demographics</Text>
-            <View style={styles.chartPlaceholder}>
-              <Ionicons name="pie-chart" size={48} color={Colors.textSecondary} />
-              <Text style={styles.chartPlaceholderText}>Demographics Chart</Text>
-              <Text style={styles.chartPlaceholderSubtext}>Pie chart showing demographic distribution</Text>
-            </View>
+            <DemographicsSection
+              ageDistribution={analyticsData.ageDistribution}
+              genderDistribution={analyticsData.genderDistribution}
+            />
+          </View>
+
+          {/* Location Distribution */}
+          <View style={styles.patientChartCard}>
+            <Text style={styles.patientChartCardTitle}>Location</Text>
+            <LocationSection locationDistribution={analyticsData.locationDistribution} />
           </View>
         </View>
       </View>
     );
   };
 
-  const renderChatbotAnalytics = () => (
+  // Process chatbot analytics data from chat_history
+  const processChatbotAnalytics = () => {
+    if (!chatHistory || chatHistory.length === 0) {
+      return {
+        inquiryVolume: 0,
+        successfulSchedulingRate: 0,
+        incompleteSchedulingRate: 0,
+        platformDistribution: {},
+        dailyInquiries: { data: [], labels: [], colors: [] }
+      };
+    }
+
+    // Filter user messages (inquiries)
+    const userMessages = chatHistory.filter(msg => msg.role === 'user');
+    const inquiryVolume = userMessages.length;
+
+    // Calculate successful scheduling rate
+    // A conversation is successful if it has both user and bot messages
+    const senderIds = [...new Set(chatHistory.map(msg => msg.sender_id))];
+    let successfulConversations = 0;
+    let totalConversations = 0;
+
+    senderIds.forEach(senderId => {
+      const messages = chatHistory.filter(msg => msg.sender_id === senderId);
+      const hasUser = messages.some(msg => msg.role === 'user');
+      const hasBot = messages.some(msg => msg.role === 'bot');
+      
+      if (hasUser) {
+        totalConversations++;
+        if (hasBot) {
+          successfulConversations++;
+        }
+      }
+    });
+
+    const successfulSchedulingRate = totalConversations > 0 
+      ? Math.round((successfulConversations / totalConversations) * 100) 
+      : 0;
+    const incompleteSchedulingRate = 100 - successfulSchedulingRate;
+
+    // Platform distribution
+    const platformCounts = {};
+    userMessages.forEach(msg => {
+      const platform = msg.platform || 'Unknown';
+      platformCounts[platform] = (platformCounts[platform] || 0) + 1;
+    });
+
+    // Daily inquiries (last 30 days)
+    const dailyCounts = {};
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    userMessages.forEach(msg => {
+      const msgDate = new Date(msg.created_at);
+      if (msgDate >= thirtyDaysAgo) {
+        const dateKey = msgDate.toISOString().split('T')[0]; // YYYY-MM-DD
+        dailyCounts[dateKey] = (dailyCounts[dateKey] || 0) + 1;
+      }
+    });
+
+    // Sort dates and prepare chart data
+    const sortedDates = Object.keys(dailyCounts).sort();
+    const dailyData = sortedDates.map(date => dailyCounts[date]);
+    const dailyLabels = sortedDates.map(date => {
+      const d = new Date(date);
+      return `${d.getMonth() + 1}/${d.getDate()}`;
+    });
+    const dailyColors = ['#4A90E2', '#5BA0F2', '#6BB0FF', '#9CC9FF', '#AAD9FF'];
+
+    return {
+      inquiryVolume,
+      successfulSchedulingRate,
+      incompleteSchedulingRate,
+      platformDistribution: platformCounts,
+      dailyInquiries: { data: dailyData, labels: dailyLabels, colors: dailyColors }
+    };
+  };
+
+  const renderChatbotAnalytics = () => {
+    if (loading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.text} />
+          <Text style={styles.loadingText}>Loading chatbot data...</Text>
+        </View>
+      );
+    }
+
+    const chatbotAnalytics = processChatbotAnalytics();
+
+    return (
     <View style={styles.tabContent}>
-      {/* Chatbot Conversation Table */}
-      <ChatbotConversationSection 
-        conversations={conversations} 
-        onRowPress={handleConversationPress}
-      />
+        {/* Chatbot Conversation Table */}
+        <ChatbotConversationSection 
+          conversations={conversations} 
+          onRowPress={handleConversationPress}
+          showBusiness={isAdmin}
+          businessMap={businessMap}
+        />
 
       {/* Header with Filters */}
       <View style={styles.chatbotHeader}>
-        <Text style={styles.chatbotTitle}>Chatbot Performance</Text>
+        <Text style={styles.chatbotTitle}>
+          {isAdmin ? 'Global Chatbot Performance' : 'Chatbot Performance'}
+        </Text>
         <View style={styles.filterContainer}>
           <View style={styles.filterWrapper}>
             <Ionicons name="calendar" size={16} color={Colors.textSecondary} style={styles.filterIcon} />
@@ -403,47 +553,61 @@ const ReportsScreen = ({ navigation, currentUser }) => {
 
       {/* Summary Cards */}
       <View style={styles.summaryCards}>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryCardTitle}>Inquiry Volume</Text>
-          <Text style={styles.summaryCardValue}>1,284</Text>
-          <Text style={styles.summaryCardChange}>+15% vs last period</Text>
-        </View>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryCardTitle}>Successful Scheduling Rate</Text>
-          <Text style={styles.summaryCardValue}>72%</Text>
-          <Text style={styles.summaryCardChange}>+5% vs last period</Text>
-        </View>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryCardTitle}>Incomplete Scheduling Rate</Text>
-          <Text style={styles.summaryCardValue}>28%</Text>
-          <Text style={[styles.summaryCardChange, styles.negativeChange]}>-5% vs last period</Text>
-        </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryCardTitle}>Inquiry Volume</Text>
+            <Text style={styles.summaryCardValue}>{chatbotAnalytics.inquiryVolume.toLocaleString()}</Text>
+            <Text style={styles.summaryCardChange}>
+              {isAdmin ? 'Across all tenants' : 'Total user inquiries'}
+            </Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryCardTitle}>Successful Scheduling Rate</Text>
+            <Text style={styles.summaryCardValue}>{chatbotAnalytics.successfulSchedulingRate}%</Text>
+            <Text style={styles.summaryCardChange}>Conversations with bot response</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryCardTitle}>Incomplete Scheduling Rate</Text>
+            <Text style={styles.summaryCardValue}>{chatbotAnalytics.incompleteSchedulingRate}%</Text>
+            <Text style={[styles.summaryCardChange, styles.negativeChange]}>No bot response</Text>
+          </View>
       </View>
 
       {/* Charts Section */}
       <View style={styles.chartsSection}>
         {/* Inquiry Volume Chart */}
-        <View style={styles.chartCard}>
-          <Text style={styles.chartCardTitle}>Inquiry Volume Over Time</Text>
-          <View style={styles.chartPlaceholder}>
-            <Ionicons name="bar-chart" size={48} color={Colors.textSecondary} />
-            <Text style={styles.chartPlaceholderText}>Inquiry Volume Chart</Text>
-            <Text style={styles.chartPlaceholderSubtext}>Line chart showing daily inquiry trends</Text>
+          <View style={styles.chartCard}>
+            <Text style={styles.chartCardTitle}>Inquiry Volume Over Time</Text>
+            {chatbotAnalytics.dailyInquiries.data.length > 0 ? (
+              <VerticalBarChart
+                data={chatbotAnalytics.dailyInquiries.data}
+                labels={chatbotAnalytics.dailyInquiries.labels}
+                colors={chatbotAnalytics.dailyInquiries.colors}
+                title="Daily Inquiries"
+              />
+            ) : (
+              <View style={styles.chartPlaceholder}>
+                <Ionicons name="bar-chart" size={48} color={Colors.textSecondary} />
+                <Text style={styles.chartPlaceholderText}>No inquiry data available</Text>
+              </View>
+            )}
           </View>
-        </View>
 
-        {/* Platform Breakdown Chart */}
-        <View style={styles.chartCard}>
-          <Text style={styles.chartCardTitle}>Inquiries by Platform</Text>
-          <View style={styles.chartPlaceholder}>
-            <Ionicons name="pie-chart" size={48} color={Colors.textSecondary} />
-            <Text style={styles.chartPlaceholderText}>Platform Breakdown</Text>
-            <Text style={styles.chartPlaceholderSubtext}>Pie chart showing platform distribution</Text>
+          {/* Platform Breakdown Chart */}
+          <View style={styles.chartCard}>
+            <Text style={styles.chartCardTitle}>Inquiries by Platform</Text>
+            {Object.keys(chatbotAnalytics.platformDistribution).length > 0 ? (
+              <PlatformSection platformDistribution={chatbotAnalytics.platformDistribution} />
+            ) : (
+              <View style={styles.chartPlaceholder}>
+                <Ionicons name="pie-chart" size={48} color={Colors.textSecondary} />
+                <Text style={styles.chartPlaceholderText}>No platform data available</Text>
+              </View>
+            )}
           </View>
-        </View>
       </View>
     </View>
-  );
+    );
+  };
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={true}>
@@ -453,12 +617,16 @@ const ReportsScreen = ({ navigation, currentUser }) => {
           <Text style={styles.breadcrumbText}>Home</Text>
         </TouchableOpacity>
         <Text style={styles.breadcrumbSeparator}>›</Text>
-        <Text style={styles.breadcrumbActive}>Reports</Text>
+        <Text style={styles.breadcrumbActive}>{isAdmin ? 'Global Reports' : 'Reports'}</Text>
       </View>
 
       {/* Header */}
-      <Text style={styles.header}>Reports</Text>
-      <Text style={styles.subheader}>Analyze patient data and chatbot performance</Text>
+      <Text style={styles.header}>{isAdmin ? 'Global Reports' : 'Reports'}</Text>
+      <Text style={styles.subheader}>
+        {isAdmin 
+          ? 'Analyze patient data and chatbot performance across all tenants' 
+          : 'Analyze patient data and chatbot performance'}
+      </Text>
 
       {/* Tab Navigation */}
       <View style={styles.tabContainer}>

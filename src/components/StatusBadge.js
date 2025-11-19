@@ -6,6 +6,7 @@ import { Layout } from '../constants/Layout';
 const statusToColor = {
   confirmed: Colors.primary, // light blue
   completed: Colors.success, // green
+  pending: '#facc15', // yellow/amber
   cancelled: Colors.error,
   default: Colors.border,
 };

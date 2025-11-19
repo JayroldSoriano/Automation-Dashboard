@@ -183,9 +183,10 @@ export const chatService = {
         const botMessages = session.messages.filter(m => m.role === 'bot');
         const lastBotReply = botMessages.length > 0 ? botMessages[0].text : '—';
 
-        // Get the most recent timestamp
+        // Get the most recent timestamp and business_id
         const latestMessage = session.messages[0];
         const timestamp = latestMessage ? latestMessage.created_at : new Date().toISOString();
+        const business_id = latestMessage ? latestMessage.business_id : null;
 
         conversations.push({
           session_id: patient?.session_id || senderId.slice(0, 8) || '—',
@@ -193,7 +194,8 @@ export const chatService = {
           last_message: lastUserMessage,
           last_ai_reply: lastBotReply,
           timestamp: timestamp,
-          sender_id: senderId
+          sender_id: senderId,
+          business_id: business_id
         });
       });
 
