@@ -6,13 +6,19 @@ import { Colors } from '../constants/Colors';
 import { Layout } from '../constants/Layout';
 import NotificationSection from '../components/sections/NotificationSection';
 
-const NotificationScreen = ({ navigation }) => {
+const NotificationScreen = ({ navigation, currentUser }) => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarType, setSnackbarType] = useState('success');
+  const [businessMap, setBusinessMap] = useState({});
   const snackbarAnimation = new Animated.Value(0);
+
+  // Extract business ID from current user (user.id is the business_id)
+  // For admins, don't filter by business_id to show all notifications from all tenants
+  const isAdmin = currentUser?.role === 'admin';
+  const businessId = isAdmin ? null : (currentUser?.id || null);
 
   // Snackbar functions
   const showSnackbar = (message, type = 'success') => {
@@ -49,15 +55,43 @@ const NotificationScreen = ({ navigation }) => {
     
     try {
       // Fetch notifications from notifications table
-      const { data, error } = await supabase
+      let query = supabase
         .from('notifications')
-        .select('id, patient_id, appointment_id, message, created_at, is_read')
+        .select('id, patient_id, appointment_id, message, created_at, is_read, business_id')
         .order('created_at', { ascending: false });
+
+      // Filter by business_id only if user is not an admin
+      // For admins, show all notifications from all tenants
+      if (!isAdmin && businessId) {
+        query = query.eq('business_id', businessId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       
-      console.log('Fetched notifications count:', data.length);
-      setNotifications(data);
+      console.log('Fetched notifications count:', data.length, isAdmin ? '(All tenants)' : `(Business: ${businessId})`);
+      setNotifications(data || []);
+
+      // If admin, fetch business names for all unique business_ids
+      if (isAdmin && data && data.length > 0) {
+        const uniqueBusinessIds = [...new Set(data.map(n => n.business_id).filter(Boolean))];
+        
+        if (uniqueBusinessIds.length > 0) {
+          const { data: businesses, error: businessError } = await supabase
+            .from('users')
+            .select('id, business_name')
+            .in('id', uniqueBusinessIds);
+
+          if (!businessError && businesses) {
+            const map = {};
+            businesses.forEach(business => {
+              map[business.id] = business.business_name;
+            });
+            setBusinessMap(map);
+          }
+        }
+      }
     } catch (err) {
       console.error('Error fetching notifications:', err);
       setNotifications([]);
@@ -82,7 +116,7 @@ const NotificationScreen = ({ navigation }) => {
     return () => {
       clearInterval(pollInterval);
     };
-  }, []);
+  }, [currentUser]); // Re-fetch when currentUser changes
 
   // Use all notifications without filtering
   const filteredNotifications = notifications;
@@ -188,10 +222,17 @@ const NotificationScreen = ({ navigation }) => {
   // Handle mark all as read
   const handleMarkAllAsRead = async () => {
     try {
-      const { error } = await supabase
+      let query = supabase
         .from('notifications')
         .update({ is_read: true })
         .eq('is_read', false);
+
+      // Filter by business_id only if user is not an admin
+      if (!isAdmin && businessId) {
+        query = query.eq('business_id', businessId);
+      }
+
+      const { error } = await query;
 
       if (error) throw error;
 
@@ -260,6 +301,8 @@ const NotificationScreen = ({ navigation }) => {
           onRowPress={handleRowPress}
           onMarkAsRead={handleMarkAsRead}
           onDelete={handleDelete}
+          currentUser={currentUser}
+          businessMap={businessMap}
         />
       </View>
 

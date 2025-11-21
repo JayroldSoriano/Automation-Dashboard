@@ -267,22 +267,40 @@ const AppNavigator = () => {
 
     let isMounted = true;
 
+    // Determine if user is admin and get business_id
+    const isAdmin = currentUser?.role === 'admin';
+    const businessId = isAdmin ? null : (currentUser?.id || null);
+
     const fetchUnreadCount = async () => {
       console.log('[Notifications] Fetching unread count', {
         userId: currentUser?.id,
+        isAdmin,
+        businessId,
         supabaseConfigured: !!client,
       });
       try {
-        const { count, error } = await client
+        let query = client
           .from('notifications')
           .select('*', { count: 'exact', head: true })
           .eq('is_read', false);
+
+        // Filter by business_id only if user is not an admin
+        // For admins, show all unread notifications from all tenants
+        if (!isAdmin && businessId) {
+          query = query.eq('business_id', businessId);
+        }
+
+        const { count, error } = await query;
 
         if (error) throw error;
 
         if (isMounted) {
           setUnreadCount(count || 0);
-          console.log('[Notifications] Unread count updated', { count });
+          console.log('[Notifications] Unread count updated', { 
+            count, 
+            isAdmin, 
+            businessId: isAdmin ? 'all tenants' : businessId 
+          });
         }
       } catch (err) {
         console.error('Error fetching unread notifications:', err);
@@ -582,8 +600,8 @@ const AppNavigator = () => {
           const Component = route.component;
           const props = routeProps[route.key] || {};
           const extra = route.key === 'Login' ? { onLogin: handleLogin } : {};
-          // Pass currentUser to Dashboard, Appointment, Services, FAQs, and Reports screens for business_id filtering
-          const userProps = ['Dashboard', 'Appointment', 'Services', 'FAQs', 'Reports'].includes(route.key) ? { currentUser } : {};
+          // Pass currentUser to Dashboard, Appointment, Services, FAQs, Reports, and Notifications screens for business_id filtering
+          const userProps = ['Dashboard', 'Appointment', 'Services', 'FAQs', 'Reports', 'Notifications'].includes(route.key) ? { currentUser } : {};
           return <Component key={route.key} navigation={{ navigate }} {...props} {...extra} {...userProps} />;
         })}
       </View>

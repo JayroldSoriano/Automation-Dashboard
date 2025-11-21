@@ -3,10 +3,22 @@ import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 
-const NOTIFICATION_TABLE_COLUMNS = ['CATEGORY', 'MESSAGE', 'TYPE', 'STATUS', 'PRIORITY', 'DATE', 'ACTIONS'];
-
-const NotificationSection = ({ notifications = [], onRowPress, onMarkAsRead, onDelete }) => {
+const NotificationSection = ({ notifications = [], onRowPress, onMarkAsRead, onDelete, currentUser, businessMap = {} }) => {
   console.log('NotificationSection received notifications:', notifications?.length || 0);
+
+  // Determine if user is admin
+  const isAdmin = currentUser?.role === 'admin';
+  const businessId = isAdmin ? null : (currentUser?.id || null);
+
+  // Filter notifications by business_id for non-admin users
+  const filteredNotifications = isAdmin 
+    ? notifications 
+    : notifications.filter(n => n.business_id === businessId);
+
+  // Define columns based on user role
+  const NOTIFICATION_TABLE_COLUMNS = isAdmin
+    ? ['CATEGORY', 'BUSINESS', 'MESSAGE', 'TYPE', 'STATUS', 'PRIORITY', 'DATE', 'ACTIONS']
+    : ['CATEGORY', 'MESSAGE', 'TYPE', 'STATUS', 'PRIORITY', 'DATE', 'ACTIONS'];
 
   const formatDate = (dateString) => {
     if (!dateString) return '—';
@@ -38,7 +50,7 @@ const NotificationSection = ({ notifications = [], onRowPress, onMarkAsRead, onD
   };
 
   const renderTableData = () => {
-    return notifications.map((notification, index) => {
+    return filteredNotifications.map((notification, index) => {
       const notificationKey = `${notification.id || index}`;
       
       // Determine type based on patient_id and appointment_id
@@ -53,36 +65,57 @@ const NotificationSection = ({ notifications = [], onRowPress, onMarkAsRead, onD
       const status = notification.is_read ? 'read' : 'unread';
       const statusColor = getStatusColor(status);
       
+      // Get business name for admin users
+      const businessName = isAdmin && notification.business_id 
+        ? (businessMap[notification.business_id] || 'Unknown Business')
+        : null;
+      
+      // Build data array based on user role
+      const data = [
+        <Text style={styles.cellPrimary}>{notificationType}</Text>, // Category/Type as Title
+      ];
+      
+      // Add business column for admins
+      if (isAdmin) {
+        data.push(
+          <Text style={styles.cellBusiness} numberOfLines={1}>
+            {businessName || '—'}
+          </Text> // Business name
+        );
+      }
+      
+      // Add remaining columns
+      data.push(
+        <Text style={styles.cellDescription} numberOfLines={2}>{notification.message || '—'}</Text>, // Message
+        <Text style={styles.cellSecondary}>{notificationType}</Text>, // Type
+        <Text style={[styles.cellStatus, { color: statusColor }]}>
+          {status.charAt(0).toUpperCase() + status.slice(1)}
+        </Text>, // Status
+        <Text style={[styles.cellPriority, { color: '#10B981' }]}>
+          {notification.priority?.charAt(0).toUpperCase() + notification.priority?.slice(1) || 'Normal'}
+        </Text>, // Priority (defaulting to Normal)
+        <Text style={styles.cellDate}>{formatDate(notification.created_at)}</Text>, // Date
+        <View style={styles.actionsContainer}>
+          <TouchableOpacity 
+            style={styles.actionButton} 
+            onPress={() => onMarkAsRead && onMarkAsRead(notification)}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="mark-email-read" size={16} color="#3B82F6" />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.actionButton} 
+            onPress={() => onDelete && onDelete(notification)}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="delete" size={16} color="#EF4444" />
+          </TouchableOpacity>
+        </View>, // Actions
+      );
+      
       return {
         key: notificationKey,
-        data: [
-          <Text style={styles.cellPrimary}>{notificationType}</Text>, // Type as Title
-          <Text style={styles.cellDescription} numberOfLines={2}>{notification.message || '—'}</Text>, // Message
-          <Text style={styles.cellSecondary}>{notificationType}</Text>, // Type
-          <Text style={[styles.cellStatus, { color: statusColor }]}>
-            {status.charAt(0).toUpperCase() + status.slice(1)}
-          </Text>, // Status
-          <Text style={[styles.cellPriority, { color: '#10B981' }]}>
-            {notification.priority?.charAt(0).toUpperCase() + notification.priority?.slice(1) || 'Normal'}
-          </Text>, // Priority (defaulting to Normal)
-          <Text style={styles.cellDate}>{formatDate(notification.created_at)}</Text>, // Date
-          <View style={styles.actionsContainer}>
-            <TouchableOpacity 
-              style={styles.actionButton} 
-              onPress={() => onMarkAsRead && onMarkAsRead(notification)}
-              activeOpacity={0.7}
-            >
-              <MaterialIcons name="mark-email-read" size={16} color="#3B82F6" />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.actionButton} 
-              onPress={() => onDelete && onDelete(notification)}
-              activeOpacity={0.7}
-            >
-              <MaterialIcons name="delete" size={16} color="#EF4444" />
-            </TouchableOpacity>
-          </View>, // Actions
-        ],
+        data,
         notification
       };
     });
@@ -94,13 +127,14 @@ const NotificationSection = ({ notifications = [], onRowPress, onMarkAsRead, onD
       <View style={styles.tableHeader}>
         {NOTIFICATION_TABLE_COLUMNS.map((col, colIndex) => {
           let cellStyle = styles.cell;
-          if (colIndex === 0) cellStyle = [styles.cell, styles.titleCell]; // Title
-          else if (colIndex === 1) cellStyle = [styles.cell, styles.messageCell]; // Message
-          else if (colIndex === 2) cellStyle = [styles.cell, styles.typeCell]; // Type
-          else if (colIndex === 3) cellStyle = [styles.cell, styles.statusCell]; // Status
-          else if (colIndex === 4) cellStyle = [styles.cell, styles.priorityCell]; // Priority
-          else if (colIndex === 5) cellStyle = [styles.cell, styles.dateCell]; // Date
-          else if (colIndex === 6) cellStyle = [styles.cell, styles.actionsCell]; // Actions
+          if (colIndex === 0) cellStyle = [styles.cell, styles.titleCell]; // Category
+          else if (isAdmin && colIndex === 1) cellStyle = [styles.cell, styles.businessCell]; // Business (admin only)
+          else if ((isAdmin && colIndex === 2) || (!isAdmin && colIndex === 1)) cellStyle = [styles.cell, styles.messageCell]; // Message
+          else if ((isAdmin && colIndex === 3) || (!isAdmin && colIndex === 2)) cellStyle = [styles.cell, styles.typeCell]; // Type
+          else if ((isAdmin && colIndex === 4) || (!isAdmin && colIndex === 3)) cellStyle = [styles.cell, styles.statusCell]; // Status
+          else if ((isAdmin && colIndex === 5) || (!isAdmin && colIndex === 4)) cellStyle = [styles.cell, styles.priorityCell]; // Priority
+          else if ((isAdmin && colIndex === 6) || (!isAdmin && colIndex === 5)) cellStyle = [styles.cell, styles.dateCell]; // Date
+          else if ((isAdmin && colIndex === 7) || (!isAdmin && colIndex === 6)) cellStyle = [styles.cell, styles.actionsCell]; // Actions
           
           return (
             <View key={col} style={cellStyle}>
@@ -128,13 +162,14 @@ const NotificationSection = ({ notifications = [], onRowPress, onMarkAsRead, onD
           >
             {rowData.data.map((cell, colIndex) => {
               let cellStyle = styles.cell;
-              if (colIndex === 0) cellStyle = [styles.cell, styles.titleCell]; // Title
-              else if (colIndex === 1) cellStyle = [styles.cell, styles.messageCell]; // Message
-              else if (colIndex === 2) cellStyle = [styles.cell, styles.typeCell]; // Type
-              else if (colIndex === 3) cellStyle = [styles.cell, styles.statusCell]; // Status
-              else if (colIndex === 4) cellStyle = [styles.cell, styles.priorityCell]; // Priority
-              else if (colIndex === 5) cellStyle = [styles.cell, styles.dateCell]; // Date
-              else if (colIndex === 6) cellStyle = [styles.cell, styles.actionsCell]; // Actions
+              if (colIndex === 0) cellStyle = [styles.cell, styles.titleCell]; // Category
+              else if (isAdmin && colIndex === 1) cellStyle = [styles.cell, styles.businessCell]; // Business (admin only)
+              else if ((isAdmin && colIndex === 2) || (!isAdmin && colIndex === 1)) cellStyle = [styles.cell, styles.messageCell]; // Message
+              else if ((isAdmin && colIndex === 3) || (!isAdmin && colIndex === 2)) cellStyle = [styles.cell, styles.typeCell]; // Type
+              else if ((isAdmin && colIndex === 4) || (!isAdmin && colIndex === 3)) cellStyle = [styles.cell, styles.statusCell]; // Status
+              else if ((isAdmin && colIndex === 5) || (!isAdmin && colIndex === 4)) cellStyle = [styles.cell, styles.priorityCell]; // Priority
+              else if ((isAdmin && colIndex === 6) || (!isAdmin && colIndex === 5)) cellStyle = [styles.cell, styles.dateCell]; // Date
+              else if ((isAdmin && colIndex === 7) || (!isAdmin && colIndex === 6)) cellStyle = [styles.cell, styles.actionsCell]; // Actions
               
               return (
                 <View key={`cell-${colIndex}`} style={cellStyle}>
@@ -190,7 +225,10 @@ const styles = {
     flex: 1,
   },
   titleCell: {
-    flex: 1.5, // Title gets more space
+    flex: 1.5, // Category gets more space
+  },
+  businessCell: {
+    flex: 1.5, // Business name gets more space (admin only)
   },
   messageCell: {
     flex: 2.5, // Message gets the most space
@@ -238,6 +276,11 @@ const styles = {
     color: Colors.textSecondary,
     fontSize: 12,
     fontWeight: '500',
+  },
+  cellBusiness: {
+    color: Colors.text,
+    fontSize: 13,
+    fontWeight: '600',
   },
   actionsContainer: {
     flexDirection: 'row',
