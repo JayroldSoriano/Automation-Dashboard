@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,15 +13,16 @@ import { getTopService, getTopPlatform } from '../utils/dataUtils';
 import { chatService } from '../services/chatService';
 import { Colors } from '../constants/Colors';
 import { homeScreenStyles } from '../styles/HomeScreenStyles';
-import { setSupabaseCredentials } from '../config/supabase';
 
-const TenantDashboardScreen = ({ navigation, route, business: businessProp, previousCredentials: previousCredentialsProp }) => {
+const TenantDashboardScreen = ({ navigation, route, business: businessProp }) => {
   const insets = useSafeAreaInsets();
   const businessParam = route?.params?.business;
-  const previousParam = route?.params?.previousCredentials;
   const business = businessProp || businessParam || {};
-  const previousCredentials = previousCredentialsProp || previousParam;
   const businessTitle = business?.business_name || business?.email || '';
+  
+  // Extract business ID from business object (business.id is the business_id)
+  const businessId = business?.id || null;
+  
   const businessSlug = useMemo(() => {
     const source =
       business?.business_name ||
@@ -37,6 +38,7 @@ const TenantDashboardScreen = ({ navigation, route, business: businessProp, prev
       .replace(/^-+|-+$/g, '');
   }, [business]);
 
+  // Pass businessId to useHomeScreen hook to filter data by business
   const {
     viewState,
     activeTab,
@@ -46,20 +48,9 @@ const TenantDashboardScreen = ({ navigation, route, business: businessProp, prev
     handleMenuOpen,
     handleMenuClose,
     handleMenuAction,
-  } = useHomeScreen();
+  } = useHomeScreen(businessId);
 
-  const handleBackToBusinesses = async () => {
-    if (previousCredentials?.url && previousCredentials?.anonKey) {
-      await setSupabaseCredentials(
-        {
-          userId: previousCredentials.userId,
-          url: previousCredentials.url,
-          anonKey: previousCredentials.anonKey,
-          serviceRoleKey: previousCredentials.serviceRoleKey,
-        },
-        { persist: false }
-      );
-    }
+  const handleBackToBusinesses = () => {
     navigation?.navigate?.('SuperuserDashboard');
   };
 
@@ -144,7 +135,6 @@ const TenantDashboardScreen = ({ navigation, route, business: businessProp, prev
             onRowPress={async (appointment) => {
               if (!navigation) return;
               try {
-                const businessId = business?.id || appointment?.business_id || null;
                 const chatHistory = await chatService.getChatHistory(appointment.sender_id, businessId);
                 navigation.navigate('AppointmentDetailsScreen', {
                   appointment,

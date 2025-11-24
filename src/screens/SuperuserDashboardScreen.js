@@ -381,10 +381,11 @@ const SuperuserDashboardScreen = ({ navigation }) => {
   };
 
   const handleViewDashboard = (business) => {
-    Alert.alert(
-      'Dashboard not available',
-      'Tenant dashboards are not available in this build.'
-    );
+    if (!navigation) {
+      Alert.alert('Error', 'Navigation is not available.');
+      return;
+    }
+    navigation.navigate('TenantDashboard', { business });
   };
 
   const filteredBusinesses = useMemo(() => {
